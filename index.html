@@ -72,7 +72,7 @@
     padding:9px 16px; border-radius:9px; font-size:14px; font-weight:600; font-family:'Playfair Display',serif; cursor:pointer;
   }
   .btn.gold{ background:var(--gold); color:var(--ink); border:none; }
-  .btn.icon{ width:38px; height:38px; padding:0; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .btn.icon{ min-width:38px; width:auto; height:38px; padding:0 12px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; }
   .btn.danger{ color:var(--red); border-color:#d8b9ae; }
   .scroll{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
 
@@ -132,7 +132,7 @@
   .sec-block{ background:var(--panel); border:1px solid var(--line); border-radius:12px; margin-bottom:14px; overflow:hidden; }
   .sec-head{ display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--panel-2); border-bottom:1px solid var(--line); }
   .sec-head input{ flex:1; background:none; border:none; color:var(--forest); font-weight:700; font-size:15px; letter-spacing:.5px; text-transform:uppercase; font-family:'Playfair Display',serif; }
-  .sec-head .icon-sm{ background:none; border:none; color:var(--muted); font-size:15px; cursor:pointer; width:28px; height:28px; }
+  .sec-head .icon-sm{ background:none; border:none; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; min-width:28px; width:auto; height:28px; padding:0 8px; }
   .item-row{ display:flex; align-items:stretch; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); }
   .item-row:last-child{ border-bottom:none; }
   .item-row select{
@@ -200,12 +200,12 @@
   #timerDisplay.running{ border-color:var(--gold-dim); }
   #timerDisplay.warn{ color:#e2be7d; border-color:#8a6a3a; }
   #timerDisplay.over{ color:#e29184; border-color:#8a4a3f; }
-  .timer-btn{ background:none; border:1px solid var(--line); color:var(--muted); width:34px; height:34px; border-radius:8px; font-size:15px; cursor:pointer; }
+  .timer-btn{ background:none; border:1px solid var(--line); color:var(--muted); min-width:34px; width:auto; height:34px; padding:0 10px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; }
   .timer-btn:active{ background:var(--panel-2); }
   #targetWrap{ display:flex; align-items:center; gap:4px; font-size:12px; color:var(--muted); }
   #targetInput{ width:42px; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:13px; padding:3px 0; }
   .top-actions{ display:flex; gap:8px; align-items:center; }
-  .icon-btn{ background:none; border:1px solid var(--line); color:var(--muted); width:34px; height:34px; border-radius:8px; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .icon-btn{ background:none; border:1px solid var(--line); color:var(--muted); min-width:34px; width:auto; height:34px; padding:0 10px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .icon-btn:active{ background:var(--panel-2); }
   #track{ display:flex; gap:6px; padding:8px 14px; background:var(--bg); border-bottom:1px solid var(--line); overflow-x:auto; flex-shrink:0; }
   .dot{ flex:1; min-width:28px; height:5px; border-radius:3px; background:var(--panel-2); cursor:pointer; transition:background .25s; }
@@ -231,7 +231,7 @@
 
   @media (min-width:768px){
     #timerDisplay{ font-size:36px; min-width:130px; padding:6px 14px; }
-    .timer-btn,.icon-btn{ width:42px; height:42px; font-size:18px; }
+    .timer-btn,.icon-btn{ min-width:42px; height:42px; font-size:14px; }
     :root{ --title-size:56px; --body-size:32px; }
     .nav-btn{ padding:16px 30px; font-size:19px; }
     #sectionContent{ max-width:1100px; }
@@ -254,8 +254,8 @@
     <div class="view-header">
       <h1>Your Sermons</h1>
       <div style="display:flex; gap:8px;">
-        <button class="btn icon" id="backupExportBtn" title="Download a backup of everything">⭳</button>
-        <button class="btn icon" id="backupImportBtn" title="Restore from a backup file">⭱</button>
+        <button class="btn icon" id="backupExportBtn" title="Download a backup of everything">Backup</button>
+        <button class="btn icon" id="backupImportBtn" title="Restore from a backup file">Restore</button>
         <button class="btn gold" id="newSermonBtn">+ New</button>
       </div>
     </div>
@@ -269,7 +269,7 @@
     <div class="view-header">
       <button class="btn icon" id="editorBackBtn">←</button>
       <h1>Prepare</h1>
-      <button class="btn icon" id="importTextBtn" title="Paste in raw notes">⇩</button>
+      <button class="btn icon" id="importTextBtn" title="Paste in raw notes">Paste</button>
     </div>
     <div id="editorMeta">
       <input id="titleInput" placeholder="Sermon title">
@@ -281,8 +281,8 @@
     <div class="scroll"><div id="sectionsWrap"></div></div>
     <div id="editorFooter">
       <button class="btn" id="saveBtn">Save</button>
-      <button class="btn" id="exportProBtn" title="Export for ProPresenter">Export ▤</button>
-      <button class="btn gold" id="presentBtn">Present ▶</button>
+      <button class="btn" id="exportProBtn" title="Export for ProPresenter">Export</button>
+      <button class="btn gold" id="presentBtn">Present</button>
     </div>
   </div>
 
@@ -305,9 +305,9 @@
           <div class="clock-col">
             <div id="clockDisplay">--:--</div>
             <div class="countdown-row">
-              <button class="timer-btn" id="playBtn" title="Start/Pause countdown">▶</button>
+              <button class="timer-btn" id="playBtn" title="Start/Pause countdown">Play</button>
               <div id="timerDisplay">00:00</div>
-              <button class="timer-btn" id="resetBtn" title="Reset countdown">↺</button>
+              <button class="timer-btn" id="resetBtn" title="Reset countdown">Reset</button>
             </div>
           </div>
           <div id="targetWrap"><span>set</span><input id="targetInput" type="number" min="0" placeholder="20"><span>m</span></div>
@@ -315,7 +315,7 @@
       </div>
       <div class="top-actions">
         <button class="icon-btn" id="fontBtn" title="Text size">Aa</button>
-        <button class="icon-btn" id="presentBackBtn" title="Back to editor">✎</button>
+        <button class="icon-btn" id="presentBackBtn" title="Back to editor">Edit</button>
       </div>
       <div id="fontPop"><button id="fontDown">A−</button><button id="fontUp">A+</button></div>
     </div>
@@ -432,6 +432,7 @@
       b.classList.toggle('active', b.dataset.view===name);
     });
     document.getElementById('brandbar').style.display = (name==='present') ? 'none' : 'flex';
+    document.getElementById('bottomnav').style.display = (name==='present') ? 'none' : 'flex';
     if(name==='library') renderLibrary();
     if(name==='illustrations') renderIllustrations();
   }
@@ -481,9 +482,9 @@
           <div class="meta">${s.series?`<span class="tag">${escapeHtml(s.series)}</span>`:''}${dateStr?`<span>${dateStr}</span>`:''}<span>${s.sections.length} section${s.sections.length===1?'':'s'}</span></div>
         </div>
         <div class="actions">
-          <button class="btn icon" data-act="present" title="Present">▶</button>
-          <button class="btn icon" data-act="edit" title="Edit">✎</button>
-          <button class="btn icon danger" data-act="delete" title="Delete">🗑</button>
+          <button class="btn icon" data-act="present" title="Present">Present</button>
+          <button class="btn icon" data-act="edit" title="Edit">Edit</button>
+          <button class="btn icon danger" data-act="delete" title="Delete">Delete</button>
         </div>`;
       card.querySelector('[data-act="edit"]').addEventListener('click', ()=> openEditor(s.id));
       card.querySelector('[data-act="present"]').addEventListener('click', ()=> presentSermon(s.id));
@@ -607,7 +608,7 @@
           <input value="${escapeAttr(sec.title)}" data-role="sec-title" placeholder="SECTION TITLE">
           <button class="icon-sm" data-act="sec-up" title="Move up">↑</button>
           <button class="icon-sm" data-act="sec-down" title="Move down">↓</button>
-          <button class="icon-sm" data-act="sec-del" title="Delete section">🗑</button>
+          <button class="icon-sm" data-act="sec-del" title="Delete section">Del</button>
         </div>
         <div class="sec-items"></div>
         <div class="sec-foot">
@@ -889,8 +890,8 @@
         <p class="ibody">${escapeHtml(ill.body)}</p>
         <div class="itags">${(ill.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
         <div class="iactions">
-          <button class="btn icon" data-act="edit">✎</button>
-          <button class="btn icon danger" data-act="delete">🗑</button>
+          <button class="btn icon" data-act="edit">Edit</button>
+          <button class="btn icon danger" data-act="delete">Delete</button>
         </div>`;
       card.querySelector('[data-act="edit"]').addEventListener('click', ()=> openIllustModal(ill.id));
       card.querySelector('[data-act="delete"]').addEventListener('click', ()=>{
@@ -1068,7 +1069,7 @@
   function updateTimerDisplay(){
     timerDisplay.textContent = fmt(remaining);
     timerDisplay.classList.toggle('running', running);
-    playBtn.textContent = running ? '❚❚' : '▶';
+    playBtn.textContent = running ? 'Pause' : 'Play';
     timerDisplay.classList.remove('warn','over');
     if(remaining<=0) timerDisplay.classList.add('over');
     else if(remaining<=60) timerDisplay.classList.add('warn');
