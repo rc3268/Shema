@@ -407,7 +407,8 @@
   .dot.done{ background:var(--gold-dim); }
   #stage{ flex:1; overflow:hidden; position:relative; display:flex; align-items:flex-start; justify-content:center; padding:4vh 6vw; }
   #sectionLabel{ position:absolute; top:14px; left:50%; transform:translateX(-50%); font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--gold-dim); }
-  #sectionContent{ width:100%; max-width:900px; margin-top:44px; overflow-y:auto; max-height:calc(100% - 44px); padding-right:4px; }
+  #sectionContent{ width:100%; max-width:900px; margin-top:44px; overflow-y:auto; max-height:calc(100% - 44px); padding-right:4px; scrollbar-width:none; }
+  #sectionContent::-webkit-scrollbar{ display:none; }
   #sectionTitle{ font-family:'Playfair Display',serif; font-weight:700; font-size:var(--title-size,44px); line-height:1.1; margin:0 0 26px; border-bottom:2px solid var(--gold-dim); padding-bottom:14px; }
   #sermonCover{ margin:0 0 30px; padding-bottom:22px; border-bottom:2px solid var(--gold); }
   #sermonCoverSeries{
