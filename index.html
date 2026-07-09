@@ -738,7 +738,24 @@
   function saveJSON(key, val){
     try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* storage unavailable */ }
   }
-  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+  function uid(){
+    if(typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  }
+
+  // Stable per-install identifier, generated once. Not used for anything server-side yet,
+  // but stamped into backups now so a future sync layer has device provenance to work with.
+  const STORE_KEY_DEVICE = 'shema_device_id';
+  function getDeviceId(){
+    let id;
+    try { id = localStorage.getItem(STORE_KEY_DEVICE); } catch(e){}
+    if(!id){
+      id = uid();
+      try { localStorage.setItem(STORE_KEY_DEVICE, id); } catch(e){}
+    }
+    return id;
+  }
+  const deviceId = getDeviceId();
 
   /* ---- Toast + confirm dialog: replaces native alert()/confirm() ---- */
   function showToast(msg, opts={}){
@@ -848,6 +865,24 @@
   function persistIllust(){ saveJSON(STORE_KEY_ILLUST, illustrations); }
   function persistHistory(){ saveJSON(STORE_KEY_HISTORY, historyLog); }
 
+  // Deletes are tombstones, not row removal: a future sync pass needs to be able to tell
+  // "this was removed" apart from "this device never saw it," so the record stays around
+  // (hidden from every list) with deleted:true rather than being spliced out.
+  function deleteSermon(id){
+    const s = sermons.find(x=>x.id===id);
+    if(!s) return;
+    s.deleted = true;
+    s.updatedAt = Date.now();
+    persistSermons();
+  }
+  function deleteIllustration(id){
+    const ill = illustrations.find(x=>x.id===id);
+    if(!ill) return;
+    ill.deleted = true;
+    ill.updatedAt = Date.now();
+    persistIllust();
+  }
+
   // Snapshot a sermon's editable content (called right before it's opened for editing) so there's
   // always a safe rollback point if an editing session goes wrong. Keeps the last 5 per sermon.
   function pushHistorySnapshot(sermonId, s){
@@ -886,11 +921,18 @@
     return it;
   }
   function normalizeSermon(s){
+    if(!s.schemaVersion) s.schemaVersion = 1;
     (s.sections||[]).forEach(sec => { (sec.items||[]).forEach(normalizeItem); });
     return s;
   }
+  function normalizeIllustration(ill){
+    if(!ill.schemaVersion) ill.schemaVersion = 1;
+    return ill;
+  }
   sermons.forEach(normalizeSermon);
+  illustrations.forEach(normalizeIllustration);
   persistSermons();
+  persistIllust();
 
   /* ============ TEMPLATES ============ */
   const TEMPLATES = [
@@ -904,6 +946,7 @@
   function newSermonFromTemplate(tpl, presetDate){
     return {
       id: uid(),
+      schemaVersion: 1,
       title: '',
       series: '',
       date: presetDate || new Date().toISOString().slice(0,10),
@@ -964,8 +1007,9 @@
     let last = null;
     try { last = parseInt(localStorage.getItem('shema_last_backup'), 10) || null; } catch(e){}
     if(!last){
-      el.textContent = sermons.length ? 'Never backed up' : '';
-      el.classList.toggle('stale', sermons.length > 0);
+      const hasSermons = sermons.some(s=>!s.deleted);
+      el.textContent = hasSermons ? 'Never backed up' : '';
+      el.classList.toggle('stale', hasSermons);
       return;
     }
     const stale = (Date.now() - last) > (14 * 86400000); // 14+ days
@@ -982,7 +1026,7 @@
   });
 
   function renderSeriesFilter(){
-    const seriesSet = [...new Set(sermons.map(s=>s.series).filter(Boolean))];
+    const seriesSet = [...new Set(sermons.filter(s=>!s.deleted).map(s=>s.series).filter(Boolean))];
     const wrap = document.getElementById('seriesFilter');
     if(seriesSet.length===0){ wrap.innerHTML=''; return; }
     wrap.innerHTML = '';
@@ -1019,8 +1063,8 @@
     card.querySelector('[data-act="delete"]').addEventListener('click', async ()=>{
       const ok = await showConfirm({ title:'Delete sermon?', message:`Delete "${s.title||'Untitled Sermon'}"? This can't be undone.`, confirmLabel:'Delete' });
       if(ok){
-        sermons = sermons.filter(x=>x.id!==s.id);
-        persistSermons(); renderLibrary();
+        deleteSermon(s.id);
+        renderLibrary();
         showToast('Sermon deleted.');
       }
     });
@@ -1031,7 +1075,7 @@
     renderSeriesFilter();
     renderBackupStatus();
     const list = document.getElementById('libraryList');
-    let items = [...sermons];
+    let items = sermons.filter(s=>!s.deleted);
     if(activeSeriesFilter) items = items.filter(s=>s.series===activeSeriesFilter);
     if(items.length===0){
       list.innerHTML = `<div id="emptyLibrary">No sermons yet.<br>Tap "+ New" to start prepping your first message.</div>`;
@@ -1090,7 +1134,7 @@
     label.textContent = planMonth.toLocaleDateString(undefined, { month:'long', year:'numeric' });
 
     const byDate = {};
-    sermons.forEach(s=>{ if(s.date){ (byDate[s.date] = byDate[s.date] || []).push(s); } });
+    sermons.filter(s=>!s.deleted).forEach(s=>{ if(s.date){ (byDate[s.date] = byDate[s.date] || []).push(s); } });
 
     const firstOfMonth = new Date(planMonth);
     const startWeekday = firstOfMonth.getDay();
@@ -1127,7 +1171,7 @@
     }
 
     // Legend: one dot per distinct series appearing anywhere, so colors stay meaningful across months
-    const seriesSet = [...new Set(sermons.map(s=>s.series).filter(Boolean))];
+    const seriesSet = [...new Set(sermons.filter(s=>!s.deleted).map(s=>s.series).filter(Boolean))];
     if(seriesSet.length){
       legend.innerHTML = seriesSet.map(sName =>
         `<div class="plan-legend-item"><span class="plan-legend-dot" style="background:${colorForSeries(sName)}"></span>${escapeHtml(sName)}</div>`
@@ -1156,6 +1200,7 @@
       app: 'shema',
       version: 1,
       exportedAt: new Date().toISOString(),
+      exportedBy: deviceId,
       sermons: sermons,
       illustrations: illustrations
     };
@@ -1193,16 +1238,25 @@
         const fromDate = data.exportedAt ? new Date(data.exportedAt).toLocaleDateString() : 'an unknown date';
         const ok = await showConfirm({
           title: 'Merge this backup?',
-          message: `This backup has ${data.sermons.length} sermon(s) and ${data.illustrations.length} illustration(s), from ${fromDate}. It will be merged into what you already have — nothing gets deleted either way.`,
+          message: `This backup has ${data.sermons.length} sermon(s) and ${data.illustrations.length} illustration(s), from ${fromDate}. It will be merged into what you already have, keeping whichever version of each item was edited most recently.`,
           confirmLabel: 'Merge',
           danger: false
         });
         if(!ok) return;
-        // Merge by id — existing items win on conflict, new items get added
-        const existingSermonIds = new Set(sermons.map(s=>s.id));
-        data.sermons.forEach(s=>{ if(!existingSermonIds.has(s.id)) sermons.push(normalizeSermon(s)); });
-        const existingIllustIds = new Set(illustrations.map(i=>i.id));
-        data.illustrations.forEach(i=>{ if(!existingIllustIds.has(i.id)) illustrations.push(i); });
+        // Merge by id, newest updatedAt wins per record. Deletions are tombstones rather than
+        // removed rows, so a delete made on the device this backup came from can propagate here.
+        const sermonById = new Map(sermons.map(s=>[s.id, s]));
+        data.sermons.forEach(incoming=>{
+          const existing = sermonById.get(incoming.id);
+          if(!existing){ sermons.push(normalizeSermon(incoming)); }
+          else if((incoming.updatedAt||0) > (existing.updatedAt||0)){ Object.assign(existing, normalizeSermon(incoming)); }
+        });
+        const illustById = new Map(illustrations.map(i=>[i.id, i]));
+        data.illustrations.forEach(incoming=>{
+          const existing = illustById.get(incoming.id);
+          if(!existing){ illustrations.push(normalizeIllustration(incoming)); }
+          else if((incoming.updatedAt||0) > (existing.updatedAt||0)){ Object.assign(existing, normalizeIllustration(incoming)); }
+        });
         persistSermons();
         persistIllust();
         renderLibrary();
@@ -1789,13 +1843,14 @@
   /* ============ ILLUSTRATIONS ============ */
   function renderIllustrations(){
     const list = document.getElementById('illustList');
-    document.getElementById('illustCount').textContent = illustrations.length ? illustrations.length+' saved' : '';
-    if(illustrations.length===0){
+    const visible = illustrations.filter(i=>!i.deleted);
+    document.getElementById('illustCount').textContent = visible.length ? visible.length+' saved' : '';
+    if(visible.length===0){
       list.innerHTML = `<div id="emptyLibrary">No illustrations saved yet.<br>Tap the + button to build your personal library of stories, quotes, and examples.</div>`;
       return;
     }
     list.innerHTML = '';
-    [...illustrations].sort((a,b)=>b.updatedAt-a.updatedAt).forEach(ill=>{
+    [...visible].sort((a,b)=>b.updatedAt-a.updatedAt).forEach(ill=>{
       const card = document.createElement('div');
       card.className = 'illust-card';
       card.innerHTML = `
@@ -1810,8 +1865,8 @@
       card.querySelector('[data-act="delete"]').addEventListener('click', async ()=>{
         const ok = await showConfirm({ title:'Delete illustration?', message:`Delete "${ill.title||'Untitled'}"? This can't be undone.`, confirmLabel:'Delete' });
         if(ok){
-          illustrations = illustrations.filter(x=>x.id!==ill.id);
-          persistIllust(); renderIllustrations();
+          deleteIllustration(ill.id);
+          renderIllustrations();
           showToast('Illustration deleted.');
         }
       });
@@ -1841,7 +1896,7 @@
       const ill = illustrations.find(x=>x.id===editingIllustId);
       ill.title=title; ill.tags=tags; ill.body=body; ill.updatedAt=Date.now();
     } else {
-      illustrations.push({ id:uid(), title, tags, body, updatedAt:Date.now() });
+      illustrations.push({ id:uid(), schemaVersion:1, title, tags, body, updatedAt:Date.now() });
     }
     persistIllust();
     illustModal.classList.remove('open');
@@ -1854,11 +1909,12 @@
   function openIllustPicker(sec){
     pickTargetSection = sec;
     const list = document.getElementById('illustPickList');
-    if(illustrations.length===0){
+    const visible = illustrations.filter(i=>!i.deleted);
+    if(visible.length===0){
       list.innerHTML = `<div id="emptyLibrary">No illustrations saved yet.<br>Add some from the Illustrations tab first.</div>`;
     } else {
       list.innerHTML = '';
-      illustrations.forEach(ill=>{
+      visible.forEach(ill=>{
         const c = document.createElement('div');
         c.className = 'ipick-card';
         c.innerHTML = `<div class="ptitle">${escapeHtml(ill.title||'Untitled')}</div><div class="pbody">${escapeHtml(ill.body)}</div>`;
