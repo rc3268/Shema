@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shema-cache-v44';
+const CACHE_NAME = 'shema-cache-v45';
 const ASSETS = [
   './',
   './index.html',
@@ -28,6 +28,14 @@ const ASSETS = [
   './icons/fontup.png',
   './icons/bullet-list-dark.png',
   './icons/bullet-list.png',
+  './icons/numbered-list-dark.png',
+  './icons/numbered-list.png',
+  './icons/indent.png',
+  './icons/indent-dark.png',
+  './icons/outdent.png',
+  './icons/outdent-dark.png',
+  './icons/toolbar-toggle.png',
+  './icons/toolbar-toggle-dark.png',
   './icons/icon-close-dark.png',
   './icons/icon-close.png',
   './icons/nav-editor-dark.png',

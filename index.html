@@ -105,7 +105,6 @@
   }
   #brandbar.editor-active #editorTitleDisplay:active{ background:var(--panel-2); color:var(--text); }
   #brandbar.editor-active #toolbarToggleBtn{ display:flex; margin-left:auto; }
-  #toolbarToggleBtn{ font-size:18px; line-height:1; }
   #toolbarToggleBtn.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); }
   #darkModeBtn{ margin-left:8px; }
   #brandbar:not(.editor-active) #darkModeBtn{ margin-left:auto; }
@@ -507,7 +506,7 @@
     <img src="icons/brandbar.png" class="brand-mark" alt="">
     <span class="brand-word">shema</span>
     <button id="editorTitleDisplay" title="Edit sermon details"></button>
-    <button class="btn icon" id="toolbarToggleBtn" title="Toggle formatting toolbar">&#8942;</button>
+    <button class="btn icon" id="toolbarToggleBtn" title="Toggle formatting toolbar"><img class="mono-ic" src="icons/toolbar-toggle.png" data-light="icons/toolbar-toggle.png" data-dark="icons/toolbar-toggle-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
     <button class="btn icon dark-toggle" id="darkModeBtn" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:18px;width:18px;display:block;" alt=""></button>
   </div>
 
@@ -562,9 +561,10 @@
         <button data-cmd="underline" title="Underline"><u>U</u></button>
         <button id="highlightBtn" title="Highlight"><mark>H</mark></button>
         <span class="toolbar-divider"></span>
-        <button data-cmd="insertUnorderedList" title="Toggle bullet"><img class="mono-ic" src="icons/bullet-list.png" data-light="icons/bullet-list.png" data-dark="icons/bullet-list-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
-        <button data-cmd="outdent" title="Decrease indent">&#8592;</button>
-        <button data-cmd="indent" title="Increase indent">&#8594;</button>
+        <button data-cmd="insertUnorderedList" title="Toggle bullet list"><img class="mono-ic" src="icons/bullet-list.png" data-light="icons/bullet-list.png" data-dark="icons/bullet-list-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
+        <button data-cmd="insertOrderedList" title="Toggle numbered list"><img class="mono-ic" src="icons/numbered-list.png" data-light="icons/numbered-list.png" data-dark="icons/numbered-list-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
+        <button data-cmd="outdent" title="Decrease indent"><img class="mono-ic" src="icons/outdent.png" data-light="icons/outdent.png" data-dark="icons/outdent-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
+        <button data-cmd="indent" title="Increase indent"><img class="mono-ic" src="icons/indent.png" data-light="icons/indent.png" data-dark="icons/indent-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
         <span class="toolbar-divider"></span>
         <button class="vtool-plus" id="addItemBtn" title="Add content">+</button>
         <span id="autosaveStatus"></span>
