@@ -466,10 +466,11 @@
     .timer-btn,.icon-btn{ min-width:42px; height:42px; font-size:14px; }
     :root{ --title-size:56px; --body-size:32px; }
     .nav-btn{ padding:16px 30px; font-size:19px; }
-    #sectionContent{ max-width:clamp(900px, 68vw, 1500px); }
+    #sectionContent{ max-width:none; }
+    #stage{ padding-left:50px; padding-right:50px; }
     .view-header h1{ font-size:24px; }
-    #libraryList, #illustList{ max-width:clamp(700px, 60vw, 1100px); margin:0 auto; width:100%; }
-    #sectionsWrap{ max-width:clamp(700px, 60vw, 1100px); margin:0 auto; width:100%; }
+    #libraryList, #illustList{ padding-left:40px; padding-right:40px; }
+    #sectionsWrap{ padding-left:40px; padding-right:40px; }
   }
   /* Desktop / laptop / external monitor tier: iPad already reads well at arm's length;
      a Mac or PC is typically viewed from a greater distance (~24-26in vs ~18-22in for a
@@ -477,22 +478,23 @@
      comfortable visual angle, not just a wider container.
      Threshold lowered from 1200px to 1000px: a 13" laptop is commonly ~1440 CSS px at full
      width, but split-screen or a smaller external display routinely lands in the 1000-1200px
-     range, and that's still "desktop viewing distance," not "propped iPad" distance. */
+     range, and that's still "desktop viewing distance," not "propped iPad" distance.
+     Margins below are fixed pixel distances from the screen edge rather than viewport-relative
+     widths: content keeps growing to fill wide screens instead of getting capped and centered
+     with a growing empty margin on either side. */
   @media (min-width:1000px){
     .item-text{ font-size:17px; line-height:1.65; }
     .type-label{ font-size:12px; }
-    #sectionsWrap{ max-width:clamp(900px, 52vw, 1200px); }
-    #libraryList, #illustList{ max-width:clamp(800px, 50vw, 1200px); }
-    #sectionContent{ max-width:clamp(1100px, 60vw, 1700px); }
+    #sectionsWrap{ padding-left:64px; padding-right:64px; }
+    #libraryList, #illustList{ padding-left:64px; padding-right:64px; }
+    #stage{ padding-left:80px; padding-right:80px; }
   }
-  /* Wide desktop monitor tier: the 1000px tier's 1200px ceiling was tuned for a laptop-scale
-     window, but on an actual large monitor it left the content column floating as a narrow
-     island in a sea of empty margin -- correct for line-length readability at laptop widths,
-     wasteful at genuinely wide ones. Raises the ceiling, not the floor. */
+  /* Wide desktop monitor tier: fixed edge margins keep growing the content area on genuinely
+     large monitors instead of leaving it floating as a narrow island in empty space. */
   @media (min-width:1600px){
-    #sectionsWrap{ max-width:clamp(1100px, 58vw, 1500px); }
-    #libraryList, #illustList{ max-width:clamp(1000px, 55vw, 1500px); }
-    #sectionContent{ max-width:clamp(1300px, 65vw, 1900px); }
+    #sectionsWrap{ padding-left:96px; padding-right:96px; }
+    #libraryList, #illustList{ padding-left:96px; padding-right:96px; }
+    #stage{ padding-left:120px; padding-right:120px; }
   }
   
 </style>
