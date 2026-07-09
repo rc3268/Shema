@@ -284,7 +284,7 @@
   }
   .plan-entry{
     font-size:9.5px; font-weight:600; color:#fff; border-radius:4px; padding:2px 5px;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.4;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.4; min-width:0;
   }
   .plan-more{ font-size:9px; color:var(--muted); padding:0 2px; }
   #planLegend{ display:flex; gap:10px; flex-wrap:wrap; padding:10px; }
@@ -307,8 +307,9 @@
   .sec-foot{ display:flex; gap:8px; padding:8px 12px; }
   .sec-foot button{ background:none; border:none; color:var(--gold-dim); font-size:12px; font-weight:600; font-family:'Playfair Display',serif; cursor:pointer; padding:4px 0; }
   #addSectionBtn{ width:100%; padding:12px; border:1px dashed var(--line); background:none; color:var(--muted); border-radius:12px; font-size:13px; cursor:pointer; }
-  #editorFooter{ display:flex; gap:10px; padding:12px 14px; background:var(--panel); border-top:1px solid var(--line); flex-shrink:0; padding-bottom:calc(12px + env(safe-area-inset-bottom)); }
-  #editorFooter .btn{ flex:1; }
+  #editorFooter{ display:flex; gap:10px; padding:12px 14px; background:var(--panel); border-top:1px solid var(--line); flex-shrink:0; padding-bottom:calc(12px + env(safe-area-inset-bottom)); overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  #editorFooter::-webkit-scrollbar{ display:none; }
+  #editorFooter .btn{ flex:1; flex-shrink:0; }
 
   /* ===== ILLUSTRATIONS ===== */
   #illustList{ padding:12px 14px 90px; }
@@ -417,6 +418,10 @@
     .timer-btn{ padding:0 10px; font-size:11px; }
     #presentSermonInfo{ padding:0 4px; font-size:11px; }
     .icon-btn{ min-width:30px; padding:0 8px; font-size:12px; }
+    .hide-narrow{ display:none; }
+    #editorFooter{ gap:6px; padding:10px 10px calc(10px + env(safe-area-inset-bottom)); }
+    #editorFooter .btn{ padding:9px 8px; font-size:12px; }
+    #editorFooter #historyBtn, #editorFooter #importTextBtn{ padding:9px 8px !important; }
   }
 
   @media (min-width:768px){
@@ -532,7 +537,7 @@
       <button class="btn" id="historyBtn" title="Restore an earlier version" style="flex:0 0 auto; padding:9px 12px;">History</button>
       <button class="btn" id="importTextBtn" title="Paste in sermon notes and auto-split them into sections" style="flex:0 0 auto; padding:9px 12px;">Import</button>
       <button class="btn" id="saveBtn">Save</button>
-      <button class="btn" id="exportProBtn" title="Export for ProPresenter">Export to ProPresenter</button>
+      <button class="btn" id="exportProBtn" title="Export for ProPresenter">Export<span class="hide-narrow"> to ProPresenter</span></button>
       <button class="btn gold" id="presentBtn">Present</button>
     </div>
   </div>
