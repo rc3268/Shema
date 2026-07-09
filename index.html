@@ -96,6 +96,19 @@
   #brandbar .brand-word{
     font-family:'Playfair Display',serif; font-weight:700; font-size:19px; color:var(--text); letter-spacing:0.2px;
   }
+  #editorTitleDisplay, #toolbarToggleBtn{ display:none; }
+  #brandbar.editor-active #editorTitleDisplay{
+    display:block; flex:1; min-width:0; margin-left:10px; text-align:left;
+    background:none; border:none; padding:6px 8px; border-radius:8px; cursor:pointer;
+    font-family:'Playfair Display',serif; font-style:italic; font-size:15px; color:var(--muted);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:background .15s ease, color .15s ease;
+  }
+  #brandbar.editor-active #editorTitleDisplay:active{ background:var(--panel-2); color:var(--text); }
+  #brandbar.editor-active #toolbarToggleBtn{ display:flex; margin-left:auto; }
+  #toolbarToggleBtn{ font-size:18px; line-height:1; }
+  #toolbarToggleBtn.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); }
+  #darkModeBtn{ margin-left:8px; }
+  #brandbar:not(.editor-active) #darkModeBtn{ margin-left:auto; }
   .dark-toggle, .btn.icon.dark-toggle, .icon-btn.dark-toggle{
     font-family:'Playfair Display',serif; font-weight:700; font-size:16px; min-width:34px; width:34px; padding:0;
     background:var(--ink); color:var(--cream); border:none;
@@ -186,7 +199,9 @@
   .tpl-card .tsecs{ font-size:12px; color:var(--muted); }
 
   /* ===== EDITOR ===== */
-  #editorMeta{ padding:14px 16px 6px; display:flex; flex-direction:column; gap:8px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; }
+  #editorBody{ display:flex; flex:1; min-height:0; overflow:hidden; }
+  #editorScrollWrap{ flex:1; min-width:0; }
+  #editorMeta{ display:flex; flex-direction:column; gap:10px; }
   #editorMeta input{
     background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:9px; padding:10px 12px; font-size:15px;
   }
@@ -197,7 +212,9 @@
   #prepResizeHandle{ position:fixed; width:14px; margin-left:-7px; cursor:ew-resize; z-index:30; display:none; touch-action:none; }
   #prepResizeHandle::before{ content:''; position:absolute; left:6px; top:0; bottom:0; width:2px; background:var(--line); opacity:0; transition:opacity .15s, background .15s; border-radius:2px; }
   #prepResizeHandle:hover::before, #prepResizeHandle.dragging::before{ opacity:1; background:var(--gold); }
-  .sec-block{ background:var(--panel); border:1px solid var(--line); border-radius:12px; margin-bottom:14px; overflow:hidden; }
+  .sec-block{ background:var(--panel); border:1px solid var(--line); border-radius:12px; margin-bottom:14px; overflow:hidden; transition:border-color .15s ease, box-shadow .15s ease; }
+  .sec-block.drop-target-active{ border-color:var(--gold-dim); box-shadow:0 0 0 3px var(--gold-soft-bg); }
+  .sec-items-empty{ padding:16px 12px; text-align:center; color:var(--muted); font-size:13px; font-style:italic; opacity:0.8; }
   .sec-head{ display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--panel-2); border-bottom:1px solid var(--line); }
   .sec-head input{ flex:1; background:none; border:none; color:var(--heading); font-weight:700; font-size:15px; letter-spacing:.5px; text-transform:uppercase; font-family:'Playfair Display',serif; }
   .sec-head .icon-sm{ background:none; border:none; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; min-width:28px; width:auto; height:28px; padding:0 8px; }
@@ -248,25 +265,47 @@
     font-size:11px; color:var(--gold-dim); background:var(--gold-soft); border-radius:8px;
     padding:4px 8px; flex-shrink:0; align-self:flex-start; font-weight:600;
   }
+  /* Persistent right-hand sidebar, collapsed to 0 width by default. Toggled from the brandbar
+     icon; #editorScrollWrap is its flex sibling so it narrows automatically as this grows. */
   #richToolbar{
-    display:flex; align-items:center; gap:6px; padding:9px 14px; background:var(--panel);
-    border-bottom:1px solid var(--line); flex-shrink:0; flex-wrap:wrap; box-shadow:0 1px 3px rgba(0,0,0,0.04);
+    display:flex; flex-direction:column; align-items:center; gap:8px; width:0; padding:0;
+    background:var(--panel); border-left:1px solid var(--line); flex-shrink:0; overflow:hidden;
+    box-shadow:-1px 0 3px rgba(0,0,0,0.04); transition:width .22s ease, padding .22s ease;
   }
+  #editorBody.toolbar-open #richToolbar{ width:54px; padding:14px 0; overflow-y:auto; }
   #autosaveStatus{
-    margin-left:auto; font-size:11px; color:var(--gold-dim); font-weight:600; opacity:0;
-    transition:opacity .4s ease; flex-shrink:0;
+    margin-top:auto; font-size:10px; color:var(--gold-dim); font-weight:600; opacity:0;
+    transition:opacity .4s ease; flex-shrink:0; white-space:nowrap;
   }
   #autosaveStatus.show{ opacity:1; }
   #richToolbar button{
     background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-    min-width:32px; height:32px; padding:0 10px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;
-    transition:transform .1s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
+    min-width:36px; width:36px; height:36px; padding:0; border-radius:9px; font-size:13px; font-weight:600; cursor:pointer;
+    flex-shrink:0; transition:transform .1s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
   }
   #richToolbar button:hover{ border-color:var(--sage); }
   #richToolbar button:active{ transform:scale(0.93); }
   #richToolbar button.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); box-shadow:inset 0 1px 2px rgba(0,0,0,0.06); }
   #highlightBtn mark{ background:var(--gold-soft); color:var(--ink); border-radius:3px; padding:0 3px; font-weight:600; }
-  #richToolbar .toolbar-divider{ width:1px; height:20px; background:var(--line); margin:0 2px; }
+  #richToolbar .toolbar-divider{ width:26px; height:1px; background:var(--line); margin:2px 0; flex-shrink:0; }
+  .vtool-plus{ background:var(--gold); color:var(--ink); border:none; font-size:18px; font-weight:700; box-shadow:0 1px 2px rgba(0,0,0,0.12); }
+  .vtool-plus:hover{ border-color:transparent; }
+
+  /* ---- "+" content-type popover: small, anchored near the button, draggable chips ---- */
+  #itemTypePop{
+    position:fixed; display:none; flex-direction:column; gap:6px; padding:8px; z-index:55;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,0.14);
+  }
+  #itemTypePop.open{ display:flex; }
+  .type-chip{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:9px;
+    padding:9px 14px; font-size:13px; font-weight:600; white-space:nowrap; cursor:grab; user-select:none; touch-action:none;
+  }
+  .type-chip:active{ cursor:grabbing; }
+  .chip-ghost{
+    position:fixed; z-index:80; pointer-events:none; opacity:0.9; transform:translate(-50%, -50%);
+    box-shadow:0 8px 24px rgba(0,0,0,0.22);
+  }
   #planWeekdays{ display:grid; grid-template-columns:repeat(7,1fr); padding:0 10px; margin-bottom:4px; }
   #planWeekdays span{ text-align:center; font-size:10px; font-weight:700; letter-spacing:0.5px; color:var(--muted); text-transform:uppercase; }
   #planGrid{ display:grid; grid-template-columns:repeat(7,1fr); gap:5px; padding:0 10px 4px; }
@@ -304,8 +343,6 @@
   .toast.danger{ background:var(--red); }
   #confirmOkBtn.danger{ background:var(--red); color:#fff; border:none; }
   #confirmOkBtn.danger:hover{ box-shadow:0 2px 6px rgba(0,0,0,0.2); }
-  .sec-foot{ display:flex; gap:8px; padding:8px 12px; }
-  .sec-foot button{ background:none; border:none; color:var(--gold-dim); font-size:12px; font-weight:600; font-family:'Playfair Display',serif; cursor:pointer; padding:4px 0; }
   #addSectionBtn{ width:100%; padding:12px; border:1px dashed var(--line); background:none; color:var(--muted); border-radius:12px; font-size:13px; cursor:pointer; }
   #editorFooter{ display:flex; gap:10px; padding:12px 14px; background:var(--panel); border-top:1px solid var(--line); flex-shrink:0; padding-bottom:calc(12px + env(safe-area-inset-bottom)); overflow-x:auto; -webkit-overflow-scrolling:touch; }
   #editorFooter::-webkit-scrollbar{ display:none; }
@@ -432,7 +469,7 @@
     #sectionContent{ max-width:clamp(900px, 68vw, 1500px); }
     .view-header h1{ font-size:24px; }
     #libraryList, #illustList{ max-width:clamp(700px, 60vw, 1100px); margin:0 auto; width:100%; }
-    #editorMeta, #sectionsWrap{ max-width:clamp(700px, 60vw, 1100px); margin:0 auto; width:100%; }
+    #sectionsWrap{ max-width:clamp(700px, 60vw, 1100px); margin:0 auto; width:100%; }
   }
   /* Desktop / laptop / external monitor tier: iPad already reads well at arm's length;
      a Mac or PC is typically viewed from a greater distance (~24-26in vs ~18-22in for a
@@ -444,7 +481,7 @@
   @media (min-width:1000px){
     .item-text{ font-size:17px; line-height:1.65; }
     .type-label{ font-size:12px; }
-    #editorMeta, #sectionsWrap{ max-width:clamp(900px, 52vw, 1200px); }
+    #sectionsWrap{ max-width:clamp(900px, 52vw, 1200px); }
     #libraryList, #illustList{ max-width:clamp(800px, 50vw, 1200px); }
     #sectionContent{ max-width:clamp(1100px, 60vw, 1700px); }
   }
@@ -453,7 +490,7 @@
      island in a sea of empty margin -- correct for line-length readability at laptop widths,
      wasteful at genuinely wide ones. Raises the ceiling, not the floor. */
   @media (min-width:1600px){
-    #editorMeta, #sectionsWrap{ max-width:clamp(1100px, 58vw, 1500px); }
+    #sectionsWrap{ max-width:clamp(1100px, 58vw, 1500px); }
     #libraryList, #illustList{ max-width:clamp(1000px, 55vw, 1500px); }
     #sectionContent{ max-width:clamp(1300px, 65vw, 1900px); }
   }
@@ -466,7 +503,9 @@
   <div id="brandbar">
     <img src="icons/brandbar.png" class="brand-mark" alt="">
     <span class="brand-word">shema</span>
-    <button class="btn icon dark-toggle" id="darkModeBtn" style="margin-left:auto;" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:18px;width:18px;display:block;" alt=""></button>
+    <button id="editorTitleDisplay" title="Edit sermon details"></button>
+    <button class="btn icon" id="toolbarToggleBtn" title="Toggle formatting toolbar">&#8942;</button>
+    <button class="btn icon dark-toggle" id="darkModeBtn" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:18px;width:18px;display:block;" alt=""></button>
   </div>
 
   <!-- ===== LIBRARY ===== -->
@@ -512,27 +551,29 @@
 
   <!-- ===== EDITOR ===== -->
   <div class="view" id="view-editor">
-    <div id="editorMeta">
-      <input id="titleInput" placeholder="Sermon title">
-      <div class="meta-row">
-        <input id="seriesInput" placeholder="Series (optional)">
-        <input id="dateInput" type="date">
+    <div id="editorBody">
+      <div class="scroll" id="editorScrollWrap"><div id="sectionsWrap"></div></div>
+      <div id="richToolbar">
+        <button data-cmd="bold" title="Bold"><strong>B</strong></button>
+        <button data-cmd="italic" title="Italic"><em>I</em></button>
+        <button data-cmd="underline" title="Underline"><u>U</u></button>
+        <button id="highlightBtn" title="Highlight"><mark>H</mark></button>
+        <span class="toolbar-divider"></span>
+        <button data-cmd="insertUnorderedList" title="Toggle bullet"><img class="mono-ic" src="icons/bullet-list.png" data-light="icons/bullet-list.png" data-dark="icons/bullet-list-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
+        <button data-cmd="outdent" title="Decrease indent">&#8592;</button>
+        <button data-cmd="indent" title="Increase indent">&#8594;</button>
+        <span class="toolbar-divider"></span>
+        <button class="vtool-plus" id="addItemBtn" title="Add content">+</button>
+        <span id="autosaveStatus"></span>
       </div>
     </div>
-    <div class="scroll"><div id="sectionsWrap"></div></div>
-    <div id="prepResizeHandle" title="Drag to resize"></div>
-    <div id="richToolbar">
-      <button data-cmd="bold" title="Bold"><strong>B</strong></button>
-      <button data-cmd="italic" title="Italic"><em>I</em></button>
-      <button data-cmd="underline" title="Underline"><u>U</u></button>
-      <button id="highlightBtn" title="Highlight"><mark>H</mark></button>
-      <span class="toolbar-divider"></span>
-      <button data-cmd="insertUnorderedList" title="Toggle bullet"><img class="mono-ic" src="icons/highlightbtn.png" data-light="icons/highlightbtn.png" data-dark="icons/highlightbtn-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
-      <button data-cmd="outdent" title="Decrease indent">Outdent</button>
-      <button data-cmd="indent" title="Increase indent">Indent</button>
-      <span class="toolbar-hint">Select text and tap a style — or place your cursor in a line and use Bullet/Indent.</span>
-      <span id="autosaveStatus"></span>
+    <div id="itemTypePop">
+      <div class="type-chip" data-type="block" title="Drag onto a section">Block</div>
+      <div class="type-chip" data-type="quiet" title="Drag onto a section">Quiet note</div>
+      <div class="type-chip" data-type="scripture" title="Drag onto a section">Scripture</div>
+      <div class="type-chip" data-type="illustration" title="Drag onto a section">Illustration</div>
     </div>
+    <div id="prepResizeHandle" title="Drag to resize"></div>
     <div id="editorFooter">
       <button class="btn" id="historyBtn" title="Restore an earlier version" style="flex:0 0 auto; padding:9px 12px;">History</button>
       <button class="btn" id="importTextBtn" title="Paste in sermon notes and auto-split them into sections" style="flex:0 0 auto; padding:9px 12px;">Import</button>
@@ -600,6 +641,23 @@
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Choose a starting point</h2><button class="btn icon" id="closeTemplateModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll" id="templateList"></div>
+  </div>
+</div>
+
+<!-- Sermon title / series / date -->
+<div class="modal-overlay" id="sermonInfoModal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-header"><h2>Sermon Details</h2><button class="btn icon" id="closeSermonInfoModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="scroll" style="padding:0 18px 18px;">
+      <div id="editorMeta">
+        <input id="titleInput" placeholder="Sermon title">
+        <div class="meta-row">
+          <input id="seriesInput" placeholder="Series (optional)">
+          <input id="dateInput" type="date">
+        </div>
+      </div>
+      <button class="btn gold" id="sermonInfoDoneBtn" style="width:100%; margin-top:14px;">Start Writing</button>
+    </div>
   </div>
 </div>
 
@@ -868,6 +926,7 @@
       b.classList.toggle('active', b.dataset.view===name);
     });
     document.getElementById('brandbar').style.display = (name==='present') ? 'none' : 'flex';
+    document.getElementById('brandbar').classList.toggle('editor-active', name==='editor');
     document.getElementById('bottomnav').style.display = (name==='present') ? 'none' : 'flex';
     if(name==='library') renderLibrary();
     if(name==='plan') renderPlan();
@@ -1167,7 +1226,8 @@
         sermons.push(sermon);
         persistSermons();
         templateModal.classList.remove('open');
-        openEditor(sermon.id);
+        editingId = sermon.id;
+        openSermonInfoModal('create');
       });
       list.appendChild(c);
     });
@@ -1187,8 +1247,38 @@
     document.getElementById('titleInput').value = s.title || '';
     document.getElementById('seriesInput').value = s.series || '';
     document.getElementById('dateInput').value = s.date || '';
+    updateEditorTitleDisplay();
     showView('editor');
     renderSections();
+  }
+
+  /* ============ SERMON INFO MODAL (title / series / date) ============ */
+  const sermonInfoModal = document.getElementById('sermonInfoModal');
+  function openSermonInfoModal(mode){
+    const s = getEditing();
+    document.getElementById('titleInput').value = s.title || '';
+    document.getElementById('seriesInput').value = s.series || '';
+    document.getElementById('dateInput').value = s.date || '';
+    sermonInfoModal.dataset.mode = mode;
+    document.getElementById('sermonInfoDoneBtn').textContent = mode === 'create' ? 'Start Writing' : 'Done';
+    sermonInfoModal.classList.add('open');
+    setTimeout(()=> document.getElementById('titleInput').focus(), 60);
+  }
+  function closeSermonInfoModal(){
+    const mode = sermonInfoModal.dataset.mode;
+    sermonInfoModal.classList.remove('open');
+    if(mode === 'create') openEditor(editingId);
+    else updateEditorTitleDisplay();
+  }
+  document.getElementById('sermonInfoDoneBtn').addEventListener('click', closeSermonInfoModal);
+  document.getElementById('closeSermonInfoModal').addEventListener('click', closeSermonInfoModal);
+  document.getElementById('editorTitleDisplay').addEventListener('click', ()=> openSermonInfoModal('edit'));
+
+  function updateEditorTitleDisplay(){
+    const s = getEditing();
+    const el = document.getElementById('editorTitleDisplay');
+    if(!el || !s) return;
+    el.textContent = s.title || 'Untitled Sermon';
   }
 
   function renderSections(){
@@ -1198,6 +1288,7 @@
     s.sections.forEach((sec, si)=>{
       const block = document.createElement('div');
       block.className = 'sec-block';
+      block.dataset.secId = sec.id;
       block.innerHTML = `
         <div class="sec-head">
           <input value="${escapeAttr(sec.title)}" data-role="sec-title" placeholder="SECTION TITLE">
@@ -1205,14 +1296,11 @@
           <button class="icon-sm" data-act="sec-down" title="Move down"><img class="mono-ic" src="icons/sec-down.png" data-light="icons/sec-down.png" data-dark="icons/sec-down-dark.png" style="height:13px;width:13px;display:block;" alt=""></button>
           <button class="icon-sm" data-act="sec-del" title="Delete section"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:13px;width:13px;display:block;" alt=""></button>
         </div>
-        <div class="sec-items"></div>
-        <div class="sec-foot">
-          <button data-act="add-block">+ block</button>
-          <button data-act="add-quiet">+ quiet note</button>
-          <button data-act="add-scripture">+ scripture</button>
-          <button data-act="add-illust">+ illustration</button>
-        </div>`;
+        <div class="sec-items"></div>`;
       const itemsWrap = block.querySelector('.sec-items');
+      if(sec.items.length === 0){
+        itemsWrap.innerHTML = '<div class="sec-items-empty">Drag content here from the + menu</div>';
+      }
       sec.items.forEach((it, ii)=>{
         itemsWrap.appendChild(makeItemRow(sec, it, ii));
       });
@@ -1227,10 +1315,6 @@
         const ok = await showConfirm({ title:'Delete section?', message:'This will remove the section and everything in it.', confirmLabel:'Delete' });
         if(ok){ s.sections.splice(si,1); renderSections(); scheduleAutosave(); }
       });
-      block.querySelector('[data-act="add-block"]').addEventListener('click', ()=>{ sec.items.push({id:uid(),type:'block',text:''}); renderSections(); scheduleAutosave(); });
-      block.querySelector('[data-act="add-quiet"]').addEventListener('click', ()=>{ sec.items.push({id:uid(),type:'quiet',text:''}); renderSections(); scheduleAutosave(); });
-      block.querySelector('[data-act="add-scripture"]').addEventListener('click', ()=>{ sec.items.push({id:uid(),type:'scripture',text:''}); renderSections(); scheduleAutosave(); });
-      block.querySelector('[data-act="add-illust"]').addEventListener('click', ()=> openIllustPicker(sec));
       wrap.appendChild(block);
     });
     const addBtn = document.createElement('button');
@@ -1348,6 +1432,84 @@
     });
   });
 
+  /* ---- Vertical toolbar toggle (persistent sidebar, narrows the editor while open) ---- */
+  const toolbarToggleBtn = document.getElementById('toolbarToggleBtn');
+  toolbarToggleBtn.addEventListener('click', ()=>{
+    const open = document.getElementById('editorBody').classList.toggle('toolbar-open');
+    toolbarToggleBtn.classList.toggle('active', open);
+    if(!open) closeItemTypePop();
+    positionPrepHandle();
+    setTimeout(positionPrepHandle, 240); // once the width transition settles
+  });
+
+  /* ---- "+" content-type picker: opens a small popover of draggable type chips; dragging
+     one onto a section appends a new empty item of that type to the end of that section. ---- */
+  const itemTypePop = document.getElementById('itemTypePop');
+  const addItemBtn = document.getElementById('addItemBtn');
+  function closeItemTypePop(){ itemTypePop.classList.remove('open'); }
+  addItemBtn.addEventListener('click', ()=>{
+    const opening = !itemTypePop.classList.contains('open');
+    if(opening){
+      const r = addItemBtn.getBoundingClientRect();
+      itemTypePop.style.top = Math.max(8, r.top) + 'px';
+      itemTypePop.style.right = (window.innerWidth - r.left + 8) + 'px';
+      itemTypePop.classList.add('open');
+    } else {
+      closeItemTypePop();
+    }
+  });
+
+  let chipDrag = null;
+  itemTypePop.querySelectorAll('.type-chip').forEach(chip=>{
+    chip.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      const ghost = chip.cloneNode(true);
+      ghost.className = 'type-chip chip-ghost';
+      ghost.style.left = e.clientX + 'px';
+      ghost.style.top = e.clientY + 'px';
+      document.body.appendChild(ghost);
+      chipDrag = { type: chip.dataset.type, ghost, activeSec: null };
+      chip.setPointerCapture(e.pointerId);
+    });
+    chip.addEventListener('pointermove', (e)=>{
+      if(!chipDrag) return;
+      chipDrag.ghost.style.left = e.clientX + 'px';
+      chipDrag.ghost.style.top = e.clientY + 'px';
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const secBlock = under && under.closest('.sec-block');
+      if(chipDrag.activeSec && chipDrag.activeSec !== secBlock){
+        chipDrag.activeSec.classList.remove('drop-target-active');
+      }
+      if(secBlock) secBlock.classList.add('drop-target-active');
+      chipDrag.activeSec = secBlock || null;
+    });
+    chip.addEventListener('pointerup', (e)=>{
+      if(!chipDrag) return;
+      const { type, ghost, activeSec } = chipDrag;
+      ghost.remove();
+      if(activeSec) activeSec.classList.remove('drop-target-active');
+      chipDrag = null;
+      closeItemTypePop();
+      if(!activeSec) return;
+      const s = getEditing();
+      const sec = s.sections.find(x => x.id === activeSec.dataset.secId);
+      if(!sec) return;
+      if(type === 'illustration'){
+        openIllustPicker(sec);
+      } else {
+        sec.items.push({ id:uid(), type, text:'' });
+        renderSections();
+        scheduleAutosave();
+      }
+    });
+    chip.addEventListener('pointercancel', ()=>{
+      if(!chipDrag) return;
+      chipDrag.ghost.remove();
+      if(chipDrag.activeSec) chipDrag.activeSec.classList.remove('drop-target-active');
+      chipDrag = null;
+    });
+  });
+
   /* ---- Highlight: not a real execCommand the way bold/italic/underline are, so it's handled
      manually via the Range API rather than the data-cmd path above. Wraps the selection in a
      bare <mark> (no attributes -- every mark looks identical via CSS, styled differently for
@@ -1434,7 +1596,7 @@
     scheduleAutosave();
   }
 
-  document.getElementById('titleInput').addEventListener('input', e=>{ getEditing().title = e.target.value; });
+  document.getElementById('titleInput').addEventListener('input', e=>{ getEditing().title = e.target.value; updateEditorTitleDisplay(); });
   document.getElementById('seriesInput').addEventListener('input', e=>{ getEditing().series = e.target.value; });
   document.getElementById('dateInput').addEventListener('input', e=>{ getEditing().date = e.target.value; });
 
@@ -1745,6 +1907,7 @@
           document.getElementById('titleInput').value = s.title || '';
           document.getElementById('seriesInput').value = s.series || '';
           document.getElementById('dateInput').value = s.date || '';
+          updateEditorTitleDisplay();
           renderSections();
           historyModal.classList.remove('open');
           showToast('Version restored.');
@@ -2031,14 +2194,10 @@
   }
 
   function applyPrepWidth(){
-    const meta = document.getElementById('editorMeta');
     const wrap = document.getElementById('sectionsWrap');
     if(prepWidth && window.innerWidth >= 768){
-      const w = clampPrepWidth(prepWidth) + 'px';
-      meta.style.maxWidth = w;
-      wrap.style.maxWidth = w;
+      wrap.style.maxWidth = clampPrepWidth(prepWidth) + 'px';
     } else {
-      meta.style.maxWidth = '';
       wrap.style.maxWidth = '';
     }
     positionPrepHandle();
@@ -2050,14 +2209,14 @@
       prepHandle.style.display = 'none';
       return;
     }
-    const meta = document.getElementById('editorMeta');
-    const toolbar = document.getElementById('richToolbar');
-    const metaRect = meta.getBoundingClientRect();
-    const toolbarRect = toolbar.getBoundingClientRect();
+    const wrap = document.getElementById('sectionsWrap');
+    const body = document.getElementById('editorBody');
+    const wrapRect = wrap.getBoundingClientRect();
+    const bodyRect = body.getBoundingClientRect();
     prepHandle.style.display = 'block';
-    prepHandle.style.left = metaRect.right + 'px';
-    prepHandle.style.top = metaRect.top + 'px';
-    prepHandle.style.height = Math.max(0, toolbarRect.bottom - metaRect.top) + 'px';
+    prepHandle.style.left = wrapRect.right + 'px';
+    prepHandle.style.top = bodyRect.top + 'px';
+    prepHandle.style.height = bodyRect.height + 'px';
   }
 
   let prepDragging = false, prepStartX = 0, prepStartWidth = 0;
@@ -2065,7 +2224,7 @@
     prepDragging = true;
     prepHandle.classList.add('dragging');
     prepStartX = e.clientX;
-    prepStartWidth = document.getElementById('editorMeta').getBoundingClientRect().width;
+    prepStartWidth = document.getElementById('sectionsWrap').getBoundingClientRect().width;
     prepHandle.setPointerCapture(e.pointerId);
     e.preventDefault();
   });
