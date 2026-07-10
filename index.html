@@ -849,8 +849,23 @@
     try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
     catch(e){ return fallback; }
   }
+  // A failed save used to be swallowed silently -- the in-memory change looked saved (the UI had
+  // already re-rendered it) but vanished on the next reload. storageFull dedupes the warning so
+  // a quota that stays full during a burst of autosaves (e.g. while typing) doesn't spam toasts;
+  // it resets the moment any save succeeds again.
+  let storageFull = false;
   function saveJSON(key, val){
-    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* storage unavailable */ }
+    try{
+      localStorage.setItem(key, JSON.stringify(val));
+      storageFull = false;
+      return true;
+    } catch(e){
+      if(!storageFull){
+        storageFull = true;
+        showToast("Couldn't save -- your device's storage is full. Recent changes may be lost. Try removing a large image, or back up and free up space.", { danger:true, duration:6000 });
+      }
+      return false;
+    }
   }
   function uid(){
     if(typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -1073,7 +1088,7 @@
     localStorage.setItem(TEMPLATES_KEY, JSON.stringify(seeded));
     return seeded;
   }
-  function persistTemplates(){ localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates)); }
+  function persistTemplates(){ return saveJSON(TEMPLATES_KEY, templates); }
 
   function newSermonFromTemplate(tpl, presetDate){
     return {
@@ -2298,13 +2313,42 @@
     });
   }
 
+  // Everything here lives as base64 text in localStorage (no backend yet -- see context.md),
+  // which has a hard quota in the low single-digit MB. A phone photo pasted in at full resolution
+  // would eat most of that budget in one illustration, so every image is downscaled and
+  // re-encoded as a JPEG before it's ever stored -- same visual use case (a story, quote, or
+  // example a pastor glances at while prepping), a fraction of the size.
+  function compressImageDataUrl(dataUrl, maxDim = 1600, quality = 0.82){
+    return new Promise(resolve=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let { width, height } = img;
+        if(width > maxDim || height > maxDim){
+          const scale = maxDim / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        // JPEG has no alpha channel -- fill white first so a transparent PNG doesn't turn black.
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = ()=> resolve(dataUrl); // fall back to the original rather than lose the image
+      img.src = dataUrl;
+    });
+  }
+
   // A word processor doc has nowhere else for an inline picture to go, so rather than silently
   // dropping it (the only other option -- <img> was never in the rich-text allowlist), every
   // image encountered during import becomes its own Illustration library entry instead.
-  function addImageIllustration(dataUrl, title){
+  async function addImageIllustration(dataUrl, title){
     illustrations.push(normalizeIllustration({
       id: uid(), title: (title||'').trim() || 'Imported Image', tags: [], body: '',
-      imageData: dataUrl, updatedAt: Date.now()
+      imageData: await compressImageDataUrl(dataUrl), updatedAt: Date.now()
     }));
   }
 
@@ -2314,7 +2358,7 @@
     const files = Array.from((dataTransfer && dataTransfer.files) || []).filter(f => f.type.startsWith('image/'));
     let count = 0;
     for(const file of files){
-      try{ addImageIllustration(await blobToDataUrl(file), file.name.replace(/\.[a-z0-9]+$/i, '')); count++; } catch(e){}
+      try{ await addImageIllustration(await blobToDataUrl(file), file.name.replace(/\.[a-z0-9]+$/i, '')); count++; } catch(e){}
     }
     if(count) persistIllust();
     return count;
@@ -2335,7 +2379,7 @@
       } else if(/^blob:/i.test(src)){
         try{ dataUrl = await blobToDataUrl(await (await fetch(src)).blob()); } catch(e){}
       }
-      if(dataUrl){ addImageIllustration(dataUrl, img.getAttribute('alt')); count++; }
+      if(dataUrl){ await addImageIllustration(dataUrl, img.getAttribute('alt')); count++; }
       img.remove();
     }
     if(count) persistIllust();
