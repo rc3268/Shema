@@ -166,6 +166,13 @@
   .sermon-card .actions{ display:flex; gap:6px; flex-shrink:0; }
   #emptyLibrary{ text-align:center; color:var(--muted); padding:60px 30px; line-height:1.6; }
   #emptyLibrary button{ margin-top:14px; }
+  #librarySearchRow{ padding:0 14px 12px; flex-shrink:0; }
+  #librarySearchRow input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:9px 12px; font-size:14px; font-family:inherit;
+    -webkit-appearance:none; appearance:none;
+  }
+  #librarySearchRow input::placeholder{ color:var(--muted); }
   #libraryStatusRow{ display:flex; align-items:center; justify-content:space-between; padding:0 14px 10px; flex-shrink:0; }
   #backupStatus{ font-size:12px; color:var(--muted); }
   #backupStatus.stale{ color:var(--orange); font-weight:600; }
@@ -354,6 +361,7 @@
   .illust-card .ititle{ font-family:'Playfair Display',serif; font-weight:600; font-size:16px; margin:0 0 6px; }
   .illust-card .ibody{ font-size:13px; color:var(--muted); line-height:1.5; margin:0 0 8px; max-height:60px; overflow:hidden; }
   .illust-card .itags{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .illust-usage{ font-size:11px; color:var(--gold-dim); font-weight:600; margin-bottom:8px; }
   .illust-card .iactions{ display:flex; gap:8px; }
   #fabAdd{
     position:absolute; bottom:calc(78px + env(safe-area-inset-bottom)); right:20px;
@@ -374,6 +382,7 @@
   .ipick-card:active{ background:var(--panel-3); }
   .ipick-card .ptitle{ font-weight:700; font-size:14px; margin-bottom:4px; font-family:'Playfair Display',serif; }
   .ipick-card .pbody{ font-size:12px; color:var(--muted); max-height:40px; overflow:hidden; }
+  .ipick-card .illust-usage{ margin-bottom:0; margin-top:6px; }
 
   /* ===== PRESENT (unchanged core) ===== */
   #presentTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; position:relative; overflow-x:auto; -webkit-overflow-scrolling:touch; }
@@ -522,6 +531,7 @@
       </div>
     </div>
     <input type="file" id="backupFileInput" accept="application/json" style="display:none;">
+    <div id="librarySearchRow"><input type="search" id="librarySearchInput" placeholder="Search titles, series, and sermon text…"></div>
     <div id="libraryStatusRow">
       <span id="backupStatus"></span>
       <div id="sortToggle">
@@ -583,6 +593,7 @@
       <button class="btn" id="importTextBtn" title="Paste in sermon notes and auto-split them into sections" style="flex:0 0 auto; padding:9px 12px;">Import</button>
       <button class="btn" id="saveBtn">Save</button>
       <button class="btn" id="exportProBtn" title="Export for ProPresenter">Export<span class="hide-narrow"> to ProPresenter</span></button>
+      <button class="btn" id="exportPdfBtn" title="Print or save a full manuscript as PDF">Print<span class="hide-narrow"> Manuscript</span></button>
       <button class="btn gold" id="presentBtn">Present</button>
     </div>
   </div>
@@ -593,6 +604,7 @@
       <h1>Illustrations</h1>
       <span style="font-size:12px;color:var(--muted);" id="illustCount"></span>
     </div>
+    <div id="librarySearchRow"><input type="search" id="illustSearchInput" placeholder="Search titles, tags, and illustration text…"></div>
     <div class="scroll"><div id="illustList"></div></div>
     <button id="fabAdd" title="Add illustration"><img src="icons/fabadd.png" style="height:24px;width:24px;display:block;" alt=""></button>
   </div>
@@ -941,6 +953,10 @@
     { id:'expo', name:'3-Point Expository', desc:'Classic verse-by-verse structure', sections:['INTRODUCTION','POINT 1','POINT 2','POINT 3','CONCLUSION'] },
     { id:'topical', name:'Topical', desc:'Issue-driven, ends in a clear next step', sections:['HOOK','THE PROBLEM','THE ANSWER','APPLICATION','CALL TO ACTION'] },
     { id:'narrative', name:'Narrative', desc:'Tell the story, let the truth land at the turn', sections:['SET THE SCENE','RISING TENSION','THE TURN','RESOLUTION','SO WHAT'] },
+    { id:'verse-by-verse', name:'Verse-by-Verse Exposition', desc:'Slower walkthrough of a single passage, phrase by phrase', sections:['INTRODUCTION','CONTEXT','THE TEXT','KEY OBSERVATIONS','THEOLOGICAL SIGNIFICANCE','APPLICATION'] },
+    { id:'life-app', name:'Life Application', desc:'Practical, how-to structure built around a few clear steps', sections:['HOOK','THE PRINCIPLE','STEP ONE','STEP TWO','STEP THREE','CHALLENGE'] },
+    { id:'series-kickoff', name:'Series Kickoff', desc:'Launch a new teaching series and set expectations', sections:['WHY THIS SERIES, WHY NOW','WHAT TO EXPECT','OPENING TEXT','THE BIG QUESTION','THIS WEEK'] },
+    { id:'devotional', name:'Devotional / Short Reflection', desc:'A shorter format for midweek or small-group settings', sections:['SCRIPTURE READING','REFLECTION','PRAYER PROMPT'] },
     { id:'blank', name:'Blank', desc:'Start from nothing', sections:['NOTES'] }
   ];
 
@@ -988,6 +1004,20 @@
   /* ============ LIBRARY ============ */
   let activeSeriesFilter = null;
   let librarySortMode = 'recent'; // 'recent' | 'date'
+  let librarySearchQuery = '';
+
+  // Searches title/series/section titles/item text (HTML stripped) -- the point is finding
+  // that phrase, scripture, or story from a sermon written months or years ago, not just
+  // filtering by what's visible in the card (title/series already covered by the UI itself).
+  function sermonMatchesQuery(s, q){
+    if(!q) return true;
+    if((s.title||'').toLowerCase().includes(q)) return true;
+    if((s.series||'').toLowerCase().includes(q)) return true;
+    return (s.sections||[]).some(sec =>
+      (sec.title||'').toLowerCase().includes(q) ||
+      (sec.items||[]).some(it => htmlToPlainText(it.text).toLowerCase().includes(q))
+    );
+  }
 
   function timeAgo(ms){
     if(!ms) return null;
@@ -1017,6 +1047,11 @@
     el.textContent = 'Last backup: ' + timeAgo(last);
     el.classList.toggle('stale', stale);
   }
+
+  document.getElementById('librarySearchInput').addEventListener('input', e=>{
+    librarySearchQuery = e.target.value;
+    renderLibrary();
+  });
 
   document.querySelectorAll('#sortToggle button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -1078,8 +1113,12 @@
     const list = document.getElementById('libraryList');
     let items = sermons.filter(s=>!s.deleted);
     if(activeSeriesFilter) items = items.filter(s=>s.series===activeSeriesFilter);
+    const q = librarySearchQuery.trim().toLowerCase();
+    if(q) items = items.filter(s=>sermonMatchesQuery(s, q));
     if(items.length===0){
-      list.innerHTML = `<div id="emptyLibrary">No sermons yet.<br>Tap "+ New" to start prepping your first message.</div>`;
+      list.innerHTML = (q || activeSeriesFilter)
+        ? `<div id="emptyLibrary">No sermons match. Try a different search or filter.</div>`
+        : `<div id="emptyLibrary">No sermons yet.<br>Tap "+ New" to start prepping your first message.</div>`;
       return;
     }
     list.innerHTML = '';
@@ -1401,6 +1440,7 @@
              <option value="scripture">scripture</option>
            </select>`}
       <div class="item-text" contenteditable="true" data-role="text" data-placeholder="Type here..."></div>
+      ${it.type === 'scripture' ? '<button class="icon-sm" data-act="insert-verse" title="Insert the KJV text for this reference — works offline">Insert KJV</button>' : ''}
       ${it.type === 'scripture' ? '<button class="icon-sm" data-act="lookup" title="Look up on Blue Letter Bible">Look up</button>' : ''}
       <button class="icon-sm" data-act="del"><img class="mono-ic" src="icons/del.png" data-light="icons/del.png" data-dark="icons/del-dark.png" style="height:13px;width:13px;display:block;" alt=""></button>`;
     if(!isIllustration){
@@ -1443,6 +1483,30 @@
         const query = match ? match[0] : plain.slice(0, 60);
         if(!query.trim()){ showToast('Type a reference or passage first.', {danger:true}); return; }
         window.open('https://www.blueletterbible.org/search/search.cfm?Criteria=' + encodeURIComponent(query) + '&t=KJV', '_blank');
+      });
+    }
+
+    const insertVerseBtn = row.querySelector('[data-act="insert-verse"]');
+    if(insertVerseBtn){
+      insertVerseBtn.addEventListener('click', async ()=>{
+        const plain = htmlToPlainText(editable.innerHTML).trim();
+        const ref = parseScriptureRef(plain);
+        if(!ref){ showToast('Type a reference like "John 3:16" first.', {danger:true}); return; }
+        insertVerseBtn.disabled = true;
+        insertVerseBtn.textContent = 'Loading…';
+        try{
+          const data = await loadKjvData();
+          const html = formatVerseHtml(data, ref);
+          if(!html){ showToast("Couldn't find that reference — check the chapter/verse.", {danger:true}); return; }
+          editable.innerHTML = html;
+          it.text = sanitizeRichText(editable.innerHTML);
+          scheduleAutosave();
+        } catch(err){
+          showToast("Couldn't load the offline KJV text.", {danger:true});
+        } finally {
+          insertVerseBtn.disabled = false;
+          insertVerseBtn.textContent = 'Insert KJV';
+        }
       });
     }
 
@@ -1661,6 +1725,7 @@
   document.getElementById('saveBtn').addEventListener('click', ()=>{ saveEditing(); showView('library'); });
   document.getElementById('presentBtn').addEventListener('click', ()=>{ saveEditing(); presentSermon(editingId); });
   document.getElementById('exportProBtn').addEventListener('click', ()=>{ saveEditing(); exportForProPresenter(getEditing()); });
+  document.getElementById('exportPdfBtn').addEventListener('click', ()=>{ saveEditing(); exportManuscript(getEditing()); });
 
   /* ---- Export for ProPresenter (RTF — a format ProPresenter natively imports) ---- */
   const BIBLE_BOOKS = [
@@ -1677,6 +1742,140 @@
   ].sort((a,b)=> b.length - a.length); // longest first so multi-word books aren't shadowed
   const BOOK_PATTERN = BIBLE_BOOKS.map(b => b.replace(/\s/g,'\\s')).join('|');
   const SCRIPTURE_RE = new RegExp('\\b(' + BOOK_PATTERN + ')\\s+(\\d{1,3})(:(\\d{1,3})(-(\\d{1,3}))?)?\\b', 'g');
+
+  /* ============ OFFLINE KJV SCRIPTURE LOOKUP ============ */
+  // Canonical book order matches data/kjv.json exactly -- index into that file's `books` array.
+  const KJV_BOOKS = [
+    'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
+    '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra','Nehemiah',
+    'Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon','Isaiah','Jeremiah',
+    'Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos','Obadiah','Jonah','Micah','Nahum',
+    'Habakkuk','Zephaniah','Haggai','Zechariah','Malachi','Matthew','Mark','Luke','John','Acts',
+    'Romans','1 Corinthians','2 Corinthians','Galatians','Ephesians','Philippians','Colossians',
+    '1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon','Hebrews',
+    'James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'
+  ];
+  // Common abbreviations pastors actually type, mapped to the KJV_BOOKS index above.
+  const KJV_BOOK_ALIASES = {
+    genesis:0, gen:0, ge:0, gn:0,
+    exodus:1, exod:1, exo:1, ex:1,
+    leviticus:2, lev:2, le:2, lv:2,
+    numbers:3, num:3, nu:3, nm:3,
+    deuteronomy:4, deut:4, deu:4, dt:4,
+    joshua:5, josh:5, jos:5,
+    judges:6, judg:6, jdg:6,
+    ruth:7, rth:7, ru:7,
+    '1samuel':8, '1sam':8, '1sa':8,
+    '2samuel':9, '2sam':9, '2sa':9,
+    '1kings':10, '1kgs':10, '1ki':10,
+    '2kings':11, '2kgs':11, '2ki':11,
+    '1chronicles':12, '1chron':12, '1chr':12,
+    '2chronicles':13, '2chron':13, '2chr':13,
+    ezra:14, ezr:14,
+    nehemiah:15, neh:15,
+    esther:16, esth:16, est:16,
+    job:17,
+    psalms:18, psalm:18, ps:18, psa:18, pslm:18,
+    proverbs:19, prov:19, pro:19, prv:19,
+    ecclesiastes:20, eccl:20, ecc:20,
+    songofsolomon:21, song:21, sos:21, canticles:21,
+    isaiah:22, isa:22,
+    jeremiah:23, jer:23,
+    lamentations:24, lam:24,
+    ezekiel:25, ezek:25, eze:25,
+    daniel:26, dan:26,
+    hosea:27, hos:27,
+    joel:28,
+    amos:29,
+    obadiah:30, obad:30, oba:30,
+    jonah:31, jon:31,
+    micah:32, mic:32,
+    nahum:33, nah:33,
+    habakkuk:34, hab:34,
+    zephaniah:35, zeph:35, zep:35,
+    haggai:36, hag:36,
+    zechariah:37, zech:37, zec:37,
+    malachi:38, mal:38,
+    matthew:39, matt:39, mt:39,
+    mark:40, mrk:40, mk:40,
+    luke:41, luk:41, lk:41,
+    john:42, jn:42, jhn:42,
+    acts:43, act:43,
+    romans:44, rom:44, ro:44,
+    '1corinthians':45, '1cor':45, '1co':45,
+    '2corinthians':46, '2cor':46, '2co':46,
+    galatians:47, gal:47,
+    ephesians:48, eph:48,
+    philippians:49, phil:49, php:49,
+    colossians:50, col:50,
+    '1thessalonians':51, '1thess':51, '1thes':51, '1th':51,
+    '2thessalonians':52, '2thess':52, '2thes':52, '2th':52,
+    '1timothy':53, '1tim':53, '1ti':53,
+    '2timothy':54, '2tim':54, '2ti':54,
+    titus:55, tit:55,
+    philemon:56, philem:56, phm:56,
+    hebrews:57, heb:57,
+    james:58, jas:58, jam:58,
+    '1peter':59, '1pet':59, '1pe':59,
+    '2peter':60, '2pet':60, '2pe':60,
+    '1john':61, '1jn':61, '1jo':61,
+    '2john':62, '2jn':62, '2jo':62,
+    '3john':63, '3jn':63, '3jo':63,
+    jude:64,
+    revelation:65, rev:65, revelations:65
+  };
+
+  function parseScriptureRef(raw){
+    if(!raw) return null;
+    let s = raw.trim().toLowerCase();
+    s = s.replace(/^(i|1st|first)\s+/,'1 ').replace(/^(ii|2nd|second)\s+/,'2 ').replace(/^(iii|3rd|third)\s+/,'3 ');
+    const m = s.match(/^([1-3]?\s*[a-z .]+?)\.?\s+(\d+)(?::(\d+)(?:[-–](\d+))?)?\s*$/);
+    if(!m) return null;
+    const bookRaw = m[1].replace(/[.\s]+/g,'').trim();
+    const chapter = parseInt(m[2],10);
+    const verseStart = m[3] ? parseInt(m[3],10) : null;
+    const verseEnd = m[4] ? parseInt(m[4],10) : verseStart;
+    const bookIndex = KJV_BOOK_ALIASES[bookRaw];
+    if(bookIndex == null || !chapter) return null;
+    return { bookIndex, chapter, verseStart, verseEnd };
+  }
+
+  let kjvData = null;
+  let kjvLoadPromise = null;
+  function loadKjvData(){
+    if(kjvData) return Promise.resolve(kjvData);
+    if(kjvLoadPromise) return kjvLoadPromise;
+    kjvLoadPromise = fetch('data/kjv.json').then(r=>{
+      if(!r.ok) throw new Error('fetch failed');
+      return r.json();
+    }).then(d=>{ kjvData = d; return d; }).catch(err=>{ kjvLoadPromise = null; throw err; });
+    return kjvLoadPromise;
+  }
+
+  // Builds the rich-text HTML for a parsed reference, respecting the same allowed-tags
+  // sanitizer as everything else typed into an item (strong/em/br only -- no sup, no styles).
+  function formatVerseHtml(data, ref){
+    const book = data.books[ref.bookIndex];
+    if(!book) return null;
+    const chapterVerses = book.chapters[ref.chapter-1];
+    if(!chapterVerses) return null;
+    const start = ref.verseStart || 1;
+    const end = ref.verseEnd || chapterVerses.length;
+    if(start < 1 || start > chapterVerses.length) return null;
+    const verses = [];
+    for(let v=start; v<=Math.min(end, chapterVerses.length); v++){
+      verses.push({ n:v, text: chapterVerses[v-1] });
+    }
+    if(verses.length === 0) return null;
+    const showNumbers = verses.length > 1;
+    const body = verses.map(v => showNumbers
+      ? `<strong>${v.n} </strong>${escapeHtml(v.text)}`
+      : escapeHtml(v.text)
+    ).join('<br>');
+    const citation = `${KJV_BOOKS[ref.bookIndex]} ${ref.chapter}` +
+      (verses.length === 1 ? `:${verses[0].n}` : `:${verses[0].n}-${verses[verses.length-1].n}`);
+    return `${body}<br><em>${escapeHtml(citation)} (KJV)</em>`;
+  }
 
   function rtfEscape(str){
     return String(str)
@@ -1754,6 +1953,56 @@
     a.click();
     document.body.removeChild(a);
     setTimeout(()=> URL.revokeObjectURL(url), 2000);
+  }
+
+  // Unlike the ProPresenter export (scripture/illustration only, for slides), this includes
+  // every item type -- it's a full reading manuscript, for a paper backup or sharing with staff.
+  function exportManuscript(sermon){
+    if(!sermon || !sermon.sections || !sermon.sections.some(sec => sec.items.length > 0)){
+      showToast('Nothing to export yet — add some content first.', {danger:true});
+      return;
+    }
+    const dateStr = sermon.date ? new Date(sermon.date+'T00:00:00').toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}) : '';
+    const metaLine = [sermon.series, dateStr].filter(Boolean).join(' — ');
+
+    const sectionsHtml = sermon.sections.map(sec=>{
+      const itemsHtml = sec.items.map(it=>{
+        const body = it.text || '';
+        if(it.type === 'scripture') return `<div class="m-item m-scripture">${body}</div>`;
+        if(it.type === 'illustration') return `<div class="m-item m-illustration"><span class="m-label">Illustration</span>${body}</div>`;
+        if(it.type === 'quiet') return `<div class="m-item m-quiet">${body}</div>`;
+        return `<div class="m-item">${body}</div>`;
+      }).join('');
+      if(!itemsHtml) return '';
+      return `<div class="m-section"><h2>${escapeHtml(sec.title || '')}</h2>${itemsHtml}</div>`;
+    }).join('');
+
+    const doc = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(sermon.title || 'Sermon')}</title>
+    <style>
+      body{ font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; max-width:720px; margin:40px auto; padding:0 24px; line-height:1.5; }
+      h1{ font-size:28px; margin:0 0 4px; }
+      .m-meta{ font-family: Helvetica, Arial, sans-serif; font-size:13px; color:#666; margin:0 0 32px; text-transform:uppercase; letter-spacing:0.5px; }
+      h2{ font-family: Helvetica, Arial, sans-serif; font-size:13px; text-transform:uppercase; letter-spacing:1px; color:#886b3a; border-bottom:1px solid #ddd; padding-bottom:6px; margin:32px 0 12px; }
+      .m-item{ font-size:16px; margin:0 0 14px; }
+      .m-quiet{ font-style:italic; color:#555; }
+      .m-scripture{ border-left:3px solid #886b3a; padding-left:14px; color:#333; }
+      .m-illustration{ background:#f7f4ec; padding:12px 14px; border-radius:6px; }
+      .m-label{ display:block; font-family: Helvetica, Arial, sans-serif; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#886b3a; margin-bottom:4px; }
+      @media print{ body{ margin:0 auto; } }
+    </style></head>
+    <body>
+      <h1>${escapeHtml(sermon.title || 'Untitled Sermon')}</h1>
+      ${metaLine ? `<p class="m-meta">${escapeHtml(metaLine)}</p>` : ''}
+      ${sectionsHtml}
+    </body></html>`;
+
+    const w = window.open('', '_blank');
+    if(!w){ showToast("Couldn't open the print preview — check your browser's popup blocker.", {danger:true}); return; }
+    w.document.open();
+    w.document.write(doc);
+    w.document.close();
+    w.focus();
+    setTimeout(()=>{ w.print(); }, 300);
   }
 
   function saveEditing(){
@@ -1842,12 +2091,41 @@
   }
 
   /* ============ ILLUSTRATIONS ============ */
+  // Tracks which sermons an illustration has already been dropped into (via sourceIllustId,
+  // set when inserted through the picker below), so a pastor can see "already used in 2
+  // sermons" before accidentally retelling the same story to the same congregation.
+  function illustrationUsage(id){
+    const titles = [];
+    sermons.filter(s=>!s.deleted).forEach(s=>{
+      const used = s.sections.some(sec => sec.items.some(it => it.type==='illustration' && it.sourceIllustId===id));
+      if(used) titles.push(s.title || 'Untitled Sermon');
+    });
+    return { count: titles.length, titles };
+  }
+  function usageBadgeHtml(ill){
+    const usage = illustrationUsage(ill.id);
+    if(usage.count === 0) return '';
+    const label = usage.count === 1 ? 'Used in 1 sermon' : `Used in ${usage.count} sermons`;
+    return `<div class="illust-usage" title="${escapeAttr(usage.titles.join(', '))}">${label}</div>`;
+  }
+  let illustSearchQuery = '';
+  function illustMatchesQuery(ill, q){
+    if(!q) return true;
+    if((ill.title||'').toLowerCase().includes(q)) return true;
+    if((ill.body||'').toLowerCase().includes(q)) return true;
+    return (ill.tags||[]).some(t=>t.toLowerCase().includes(q));
+  }
   function renderIllustrations(){
     const list = document.getElementById('illustList');
-    const visible = illustrations.filter(i=>!i.deleted);
-    document.getElementById('illustCount').textContent = visible.length ? visible.length+' saved' : '';
+    let visible = illustrations.filter(i=>!i.deleted);
+    const totalCount = visible.length;
+    const q = illustSearchQuery.trim().toLowerCase();
+    if(q) visible = visible.filter(i=>illustMatchesQuery(i, q));
+    document.getElementById('illustCount').textContent = totalCount ? visible.length+' saved' : '';
     if(visible.length===0){
-      list.innerHTML = `<div id="emptyLibrary">No illustrations saved yet.<br>Tap the + button to build your personal library of stories, quotes, and examples.</div>`;
+      list.innerHTML = q
+        ? `<div id="emptyLibrary">No illustrations match. Try a different search.</div>`
+        : `<div id="emptyLibrary">No illustrations saved yet.<br>Tap the + button to build your personal library of stories, quotes, and examples.</div>`;
       return;
     }
     list.innerHTML = '';
@@ -1858,6 +2136,7 @@
         <p class="ititle">${escapeHtml(ill.title||'Untitled')}</p>
         <p class="ibody">${escapeHtml(ill.body)}</p>
         <div class="itags">${(ill.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
+        ${usageBadgeHtml(ill)}
         <div class="iactions">
           <button class="btn icon" data-act="edit">Edit</button>
           <button class="btn icon danger" data-act="delete">Delete</button>
@@ -1887,6 +2166,10 @@
     illustModal.classList.add('open');
   }
   document.getElementById('fabAdd').addEventListener('click', ()=> openIllustModal(null));
+  document.getElementById('illustSearchInput').addEventListener('input', e=>{
+    illustSearchQuery = e.target.value;
+    renderIllustrations();
+  });
   document.getElementById('closeIllustModal').addEventListener('click', ()=> illustModal.classList.remove('open'));
   document.getElementById('illustSaveBtn').addEventListener('click', ()=>{
     const title = document.getElementById('illustTitleInput').value.trim();
@@ -1918,9 +2201,9 @@
       visible.forEach(ill=>{
         const c = document.createElement('div');
         c.className = 'ipick-card';
-        c.innerHTML = `<div class="ptitle">${escapeHtml(ill.title||'Untitled')}</div><div class="pbody">${escapeHtml(ill.body)}</div>`;
+        c.innerHTML = `<div class="ptitle">${escapeHtml(ill.title||'Untitled')}</div><div class="pbody">${escapeHtml(ill.body)}</div>${usageBadgeHtml(ill)}`;
         c.addEventListener('click', ()=>{
-          pickTargetSection.items.push({ id:uid(), type:'illustration', text: seedRichHtml(ill.body) });
+          pickTargetSection.items.push({ id:uid(), type:'illustration', text: seedRichHtml(ill.body), sourceIllustId: ill.id });
           illustPickModal.classList.remove('open');
           renderSections();
         });
