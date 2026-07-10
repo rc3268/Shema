@@ -166,7 +166,7 @@
   .sermon-card .actions{ display:flex; gap:6px; flex-shrink:0; }
   #emptyLibrary{ text-align:center; color:var(--muted); padding:60px 30px; line-height:1.6; }
   #emptyLibrary button{ margin-top:14px; }
-  #librarySearchRow{ padding:0 14px 12px; flex-shrink:0; }
+  #librarySearchRow{ padding:8px 14px 12px; flex-shrink:0; }
   #librarySearchRow input{
     width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
     border-radius:9px; padding:9px 12px; font-size:14px; font-family:inherit;
@@ -198,11 +198,40 @@
   .modal-sheet-header h2{ font-family:'Playfair Display',serif; font-size:19px; margin:0; color:var(--heading); }
   .modal-sheet .scroll{ padding:0 18px 18px; }
   .tpl-card{
-    background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; cursor:pointer;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px;
   }
-  .tpl-card:active{ background:var(--panel-3); }
+  .tpl-card .tname, .tpl-card .tsecs{ cursor:pointer; }
+  .tpl-card-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .tpl-card .tname{ font-weight:700; font-size:15px; margin-bottom:6px; font-family:'Playfair Display',serif; }
   .tpl-card .tsecs{ font-size:12px; color:var(--muted); }
+  .tpl-card-actions{ display:flex; gap:4px; flex-shrink:0; }
+  .tpl-card-actions .icon-sm{
+    background:none; border:1px solid var(--line); color:var(--muted); font-size:11px; font-weight:600;
+    cursor:pointer; min-width:26px; width:auto; height:24px; padding:0 8px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tpl-card-add{ background:none; border:1px dashed var(--line); cursor:pointer; text-align:center; }
+  .tpl-card-add:active{ background:var(--panel-3); }
+  .tpl-card-add .tname, .tpl-card-add .tsecs{ cursor:pointer; }
+  #restoreTemplatesLink{
+    text-align:center; font-size:12px; color:var(--muted); text-decoration:underline;
+    cursor:pointer; padding:6px 0 2px;
+  }
+
+  /* form modal (template create/edit) */
+  #tplForm input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:9px;
+    padding:10px 12px; font-size:14px; margin-bottom:10px; font-family:inherit; box-sizing:border-box;
+  }
+  #tplForm label{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:4px; }
+  .tpl-sec-row{ display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+  .tpl-sec-row input{ flex:1; margin-bottom:0; }
+  .tpl-sec-row .icon-sm{
+    background:none; border:1px solid var(--line); color:var(--muted); cursor:pointer;
+    width:28px; height:36px; padding:0; border-radius:8px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tpl-sec-row .icon-sm:active{ background:var(--panel-3); }
 
   /* ===== EDITOR ===== */
   #editorBody{ display:flex; flex:1; min-height:0; overflow:hidden; }
@@ -271,6 +300,30 @@
     font-size:11px; color:var(--gold-dim); background:var(--gold-soft); border-radius:8px;
     padding:4px 8px; flex-shrink:0; align-self:flex-start; font-weight:600;
   }
+
+  /* Import modal: a compact horizontal cousin of #richToolbar, scoped to its own contenteditable
+     staging box (#importStage reuses .item-text's look) rather than the global activeEditable/
+     richToolbar machinery, since the two contenteditables are never open at the same time. */
+  #importToolbar{ display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap; flex-shrink:0; }
+  #importToolbar button{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    min-width:30px; width:30px; height:30px; padding:0; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  #importToolbar button:hover{ border-color:var(--sage); }
+  #importToolbar button:active{ transform:scale(0.93); }
+  #importToolbar button.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); }
+  #importToolbar .toolbar-divider-h{ width:1px; height:20px; background:var(--line); flex-shrink:0; }
+  #importToolbar button#importBreakBtn, #importToolbar button#importUploadBtn{ width:auto; min-width:0; padding:0 10px; font-size:11px; white-space:nowrap; }
+  #importStage{ flex:1; min-height:0; overflow-y:auto; }
+  .import-break{
+    display:flex; align-items:center; justify-content:center; gap:8px; margin:10px 0; padding:6px 10px;
+    border-top:1px dashed var(--gold-dim); border-bottom:1px dashed var(--gold-dim); background:var(--gold-soft-bg);
+    color:var(--gold-dim); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px;
+    border-radius:6px; user-select:none;
+  }
+  .import-break .brk-del{ cursor:pointer; font-weight:900; opacity:0.6; }
+  .import-break .brk-del:hover{ opacity:1; }
   /* Persistent right-hand sidebar, collapsed to 0 width by default. Toggled from the brandbar
      icon; #editorScrollWrap is its flex sibling so it narrows automatically as this grows. */
   #richToolbar{
@@ -473,7 +526,8 @@
 
   @media (min-width:768px){
     #timerDisplay{ font-size:36px; min-width:130px; padding:6px 14px; }
-    .timer-btn,.icon-btn{ min-width:42px; height:42px; font-size:14px; }
+    .timer-btn{ min-width:42px; font-size:14px; }
+    .icon-btn{ min-width:42px; height:42px; font-size:14px; }
     :root{ --title-size:56px; --body-size:32px; }
     .nav-btn{ padding:16px 30px; font-size:19px; }
     #sectionContent{ max-width:none; }
@@ -590,7 +644,7 @@
     <div id="prepResizeHandle" title="Drag to resize"></div>
     <div id="editorFooter">
       <button class="btn" id="historyBtn" title="Restore an earlier version" style="flex:0 0 auto; padding:9px 12px;">History</button>
-      <button class="btn" id="importTextBtn" title="Paste in sermon notes and auto-split them into sections" style="flex:0 0 auto; padding:9px 12px;">Import</button>
+      <button class="btn" id="importTextBtn" title="Paste or upload notes from your word processor and organize them into sections" style="flex:0 0 auto; padding:9px 12px;">Import</button>
       <button class="btn" id="saveBtn">Save</button>
       <button class="btn" id="exportProBtn" title="Export for ProPresenter">Export<span class="hide-narrow"> to ProPresenter</span></button>
       <button class="btn" id="exportPdfBtn" title="Print or save a full manuscript as PDF">Print<span class="hide-narrow"> Manuscript</span></button>
@@ -660,6 +714,26 @@
   </div>
 </div>
 
+<!-- Template editor (create / edit) -->
+<div class="modal-overlay" id="templateEditorModal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-header"><h2 id="templateEditorTitle">New Template</h2><button class="btn icon" id="closeTemplateEditorModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="scroll" id="tplForm">
+      <label>Name</label>
+      <input id="tplNameInput" placeholder="e.g. Missions Sunday">
+      <label>Description (optional)</label>
+      <input id="tplDescInput" placeholder="A short line describing the flow">
+      <label>Sections</label>
+      <div id="tplSectionList"></div>
+      <button class="btn" id="tplAddSectionBtn" style="width:100%; margin-top:4px;">+ Add Section</button>
+      <div style="display:flex; gap:8px; margin-top:16px;">
+        <button class="btn" id="tplBackBtn" style="flex:1;">Back</button>
+        <button class="btn gold" id="tplSaveBtn" style="flex:1;">Save Template</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Sermon title / series / date -->
 <div class="modal-overlay" id="sermonInfoModal">
   <div class="modal-sheet">
@@ -677,16 +751,31 @@
   </div>
 </div>
 
-<!-- Import raw text -->
+<!-- Import notes (paste or upload, keep native formatting) -->
 <div class="modal-overlay" id="importModal">
-  <div class="modal-sheet" style="height:80vh;">
-    <div class="modal-sheet-header"><h2>Paste your notes</h2><button class="btn icon" id="closeImportModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
-    <div class="scroll" style="padding:0 18px 18px; display:flex; flex-direction:column; flex:1;">
-      <div style="font-size:12px;color:var(--muted); margin-bottom:8px; line-height:1.5;">
-        Lines ending in <b>:</b> become sections. Lines starting with <b>-</b> become bullets, lines starting with <b>~</b> become quiet notes.
+  <div class="modal-sheet" style="height:88vh; max-width:760px;">
+    <div class="modal-sheet-header"><h2>Import Notes</h2><button class="btn icon" id="closeImportModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="scroll" style="padding:0 18px 18px; display:flex; flex-direction:column; flex:1; min-height:0;">
+      <div style="font-size:12px;color:var(--muted); margin-bottom:10px; line-height:1.5;">
+        Paste straight from Word, Google Docs, or Pages — bold, italics, underline, and lists carry over (color and font always match Shema). Or upload a .txt, .md, or .html file. Click <b>+ Section Break</b> wherever a new Prepare section should start. A direct .docx upload isn't supported yet — save as a web page (.html) or just copy/paste instead.
       </div>
-      <textarea id="importTextarea" style="flex:1; width:100%; background:var(--panel-2); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:12px; font-family:'IBM Plex Mono',monospace; font-size:13px; line-height:1.6;"></textarea>
-      <button class="btn gold" id="importApplyBtn" style="margin-top:10px;">Convert to Sections</button>
+      <div id="importToolbar">
+        <button data-cmd="bold" title="Bold"><strong>B</strong></button>
+        <button data-cmd="italic" title="Italic"><em>I</em></button>
+        <button data-cmd="underline" title="Underline"><u>U</u></button>
+        <span class="toolbar-divider-h"></span>
+        <button data-cmd="insertUnorderedList" title="Bullet list"><img class="mono-ic" src="icons/bullet-list.png" data-light="icons/bullet-list.png" data-dark="icons/bullet-list-dark.png" style="height:15px;width:15px;display:block;" alt=""></button>
+        <button data-cmd="insertOrderedList" title="Numbered list"><img class="mono-ic" src="icons/numbered-list.png" data-light="icons/numbered-list.png" data-dark="icons/numbered-list-dark.png" style="height:15px;width:15px;display:block;" alt=""></button>
+        <button data-cmd="outdent" title="Decrease indent"><img class="mono-ic" src="icons/outdent.png" data-light="icons/outdent.png" data-dark="icons/outdent-dark.png" style="height:15px;width:15px;display:block;" alt=""></button>
+        <button data-cmd="indent" title="Increase indent"><img class="mono-ic" src="icons/indent.png" data-light="icons/indent.png" data-dark="icons/indent-dark.png" style="height:15px;width:15px;display:block;" alt=""></button>
+        <span class="toolbar-divider-h"></span>
+        <button id="importBreakBtn">+ Section Break</button>
+        <span class="toolbar-divider-h"></span>
+        <button id="importUploadBtn" title="Upload a .txt, .md, or .html file">Upload File</button>
+        <input type="file" id="importFileInput" accept=".txt,.md,.markdown,.html,.htm" style="display:none;">
+      </div>
+      <div id="importStage" class="item-text" contenteditable="true" data-placeholder="Paste your sermon notes here, or use Upload File above…"></div>
+      <button class="btn gold" id="importApplyBtn" style="margin-top:12px;">Import into Sermon</button>
     </div>
   </div>
 </div>
@@ -948,7 +1037,9 @@
   persistIllust();
 
   /* ============ TEMPLATES ============ */
-  const TEMPLATES = [
+  // The built-in set, used only to seed localStorage the first time and to power "Restore
+  // built-in templates" -- everything the app actually reads/writes from here on is `templates`.
+  const DEFAULT_TEMPLATES = [
     { id:'mwgy', name:'Me / We / God / You / We', desc:'Personal story → shared struggle → scripture → application → close', sections:['ME','WE','GOD','YOU','WE'] },
     { id:'expo', name:'3-Point Expository', desc:'Classic verse-by-verse structure', sections:['INTRODUCTION','POINT 1','POINT 2','POINT 3','CONCLUSION'] },
     { id:'topical', name:'Topical', desc:'Issue-driven, ends in a clear next step', sections:['HOOK','THE PROBLEM','THE ANSWER','APPLICATION','CALL TO ACTION'] },
@@ -959,6 +1050,18 @@
     { id:'devotional', name:'Devotional / Short Reflection', desc:'A shorter format for midweek or small-group settings', sections:['SCRIPTURE READING','REFLECTION','PRAYER PROMPT'] },
     { id:'blank', name:'Blank', desc:'Start from nothing', sections:['NOTES'] }
   ];
+  const TEMPLATES_KEY = 'shema_templates_v1';
+  let templates = loadTemplates();
+  function loadTemplates(){
+    try{
+      const raw = localStorage.getItem(TEMPLATES_KEY);
+      if(raw){ const parsed = JSON.parse(raw); if(Array.isArray(parsed) && parsed.length) return parsed; }
+    } catch(e){}
+    const seeded = DEFAULT_TEMPLATES.map(t=>({...t, sections:[...t.sections]}));
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(seeded));
+    return seeded;
+  }
+  function persistTemplates(){ localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates)); }
 
   function newSermonFromTemplate(tpl, presetDate){
     return {
@@ -1311,25 +1414,133 @@
 
   /* ============ TEMPLATE MODAL ============ */
   const templateModal = document.getElementById('templateModal');
+  let templatePresetDate = null;
   function openTemplateModal(presetDate){
+    templatePresetDate = presetDate || null;
+    renderTemplateList();
+    templateModal.classList.add('open');
+  }
+  function renderTemplateList(){
     const list = document.getElementById('templateList');
     list.innerHTML = '';
-    TEMPLATES.forEach(t=>{
+    templates.forEach(t=>{
       const c = document.createElement('div');
       c.className = 'tpl-card';
-      c.innerHTML = `<div class="tname">${t.name}</div><div class="tsecs">${t.desc}</div>`;
-      c.addEventListener('click', ()=>{
-        const sermon = newSermonFromTemplate(t, presetDate);
-        sermons.push(sermon);
-        persistSermons();
-        templateModal.classList.remove('open');
-        editingId = sermon.id;
-        openSermonInfoModal('create');
+      c.innerHTML = `
+        <div class="tpl-card-head">
+          <div class="tname">${escapeHtml(t.name)}</div>
+          <div class="tpl-card-actions">
+            <button class="icon-sm" data-act="edit-tpl" title="Edit this template">Edit</button>
+            <button class="icon-sm" data-act="del-tpl" title="Delete this template"><img class="mono-ic" src="icons/del.png" data-light="icons/del.png" data-dark="icons/del-dark.png" style="height:12px;width:12px;display:block;" alt=""></button>
+          </div>
+        </div>
+        <div class="tsecs">${escapeHtml(t.desc)}</div>`;
+      c.querySelector('.tname').addEventListener('click', ()=> useTemplate(t));
+      c.querySelector('.tsecs').addEventListener('click', ()=> useTemplate(t));
+      c.querySelector('[data-act="edit-tpl"]').addEventListener('click', (e)=>{ e.stopPropagation(); openTemplateEditor(t); });
+      c.querySelector('[data-act="del-tpl"]').addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const ok = await showConfirm({ title:'Delete template?', message:`Delete "${t.name}"? Sermons already created from it are unaffected.`, confirmLabel:'Delete' });
+        if(!ok) return;
+        templates = templates.filter(x=>x.id!==t.id);
+        persistTemplates();
+        renderTemplateList();
       });
       list.appendChild(c);
     });
-    templateModal.classList.add('open');
+    const addCard = document.createElement('div');
+    addCard.className = 'tpl-card tpl-card-add';
+    addCard.innerHTML = `<div class="tname">+ New Template</div><div class="tsecs">Build your own starting structure</div>`;
+    addCard.addEventListener('click', ()=> openTemplateEditor(null));
+    list.appendChild(addCard);
+    const restore = document.createElement('div');
+    restore.id = 'restoreTemplatesLink';
+    restore.textContent = 'Restore built-in templates';
+    restore.addEventListener('click', async ()=>{
+      const ok = await showConfirm({ title:'Restore built-in templates?', message:'This adds back any built-in templates you\'ve deleted or edited, without touching templates you created yourself.', confirmLabel:'Restore', danger:false });
+      if(!ok) return;
+      const existingIds = new Set(templates.map(t=>t.id));
+      DEFAULT_TEMPLATES.forEach(dt=>{
+        if(!existingIds.has(dt.id)) templates.push({...dt, sections:[...dt.sections]});
+      });
+      persistTemplates();
+      renderTemplateList();
+    });
+    list.appendChild(restore);
   }
+  function useTemplate(t){
+    const sermon = newSermonFromTemplate(t, templatePresetDate);
+    sermons.push(sermon);
+    persistSermons();
+    templateModal.classList.remove('open');
+    editingId = sermon.id;
+    openSermonInfoModal('create');
+  }
+
+  /* ---- Template editor (create/edit a template's name, description, and section list) ---- */
+  const templateEditorModal = document.getElementById('templateEditorModal');
+  let editingTemplateId = null;
+  function openTemplateEditor(t){
+    editingTemplateId = t ? t.id : null;
+    document.getElementById('templateEditorTitle').textContent = t ? 'Edit Template' : 'New Template';
+    document.getElementById('tplNameInput').value = t ? t.name : '';
+    document.getElementById('tplDescInput').value = t ? t.desc : '';
+    const secList = document.getElementById('tplSectionList');
+    secList.innerHTML = '';
+    (t ? t.sections : ['NOTES']).forEach(title => addTplSectionRow(title));
+    templateModal.classList.remove('open');
+    templateEditorModal.classList.add('open');
+  }
+  function addTplSectionRow(title){
+    const row = document.createElement('div');
+    row.className = 'tpl-sec-row';
+    row.innerHTML = `
+      <input value="${escapeAttr(title||'')}" placeholder="Section name">
+      <button class="icon-sm" data-act="up" title="Move up"><img class="mono-ic" src="icons/sec-up.png" data-light="icons/sec-up.png" data-dark="icons/sec-up-dark.png" style="height:12px;width:12px;display:block;" alt=""></button>
+      <button class="icon-sm" data-act="down" title="Move down"><img class="mono-ic" src="icons/sec-down.png" data-light="icons/sec-down.png" data-dark="icons/sec-down-dark.png" style="height:12px;width:12px;display:block;" alt=""></button>
+      <button class="icon-sm" data-act="del" title="Remove section"><img class="mono-ic" src="icons/del.png" data-light="icons/del.png" data-dark="icons/del-dark.png" style="height:12px;width:12px;display:block;" alt=""></button>`;
+    const list = document.getElementById('tplSectionList');
+    row.querySelector('[data-act="up"]').addEventListener('click', ()=>{
+      const prev = row.previousElementSibling;
+      if(prev) list.insertBefore(row, prev);
+    });
+    row.querySelector('[data-act="down"]').addEventListener('click', ()=>{
+      const next = row.nextElementSibling;
+      if(next) list.insertBefore(next, row);
+    });
+    row.querySelector('[data-act="del"]').addEventListener('click', ()=>{
+      if(list.children.length > 1) row.remove();
+      else showToast('A template needs at least one section.', {danger:true});
+    });
+    list.appendChild(row);
+  }
+  document.getElementById('tplAddSectionBtn').addEventListener('click', ()=> addTplSectionRow(''));
+  document.getElementById('closeTemplateEditorModal').addEventListener('click', ()=>{
+    templateEditorModal.classList.remove('open');
+    templateModal.classList.add('open');
+  });
+  document.getElementById('tplBackBtn').addEventListener('click', ()=>{
+    templateEditorModal.classList.remove('open');
+    templateModal.classList.add('open');
+  });
+  document.getElementById('tplSaveBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('tplNameInput').value.trim();
+    if(!name){ showToast('Give the template a name first.', {danger:true}); return; }
+    const sections = Array.from(document.getElementById('tplSectionList').querySelectorAll('input'))
+      .map(i=>i.value.trim().toUpperCase()).filter(Boolean);
+    if(!sections.length){ showToast('Add at least one section.', {danger:true}); return; }
+    const desc = document.getElementById('tplDescInput').value.trim() || sections.join(' → ');
+    if(editingTemplateId){
+      const existing = templates.find(t=>t.id===editingTemplateId);
+      Object.assign(existing, { name, desc, sections });
+    } else {
+      templates.push({ id: uid(), name, desc, sections });
+    }
+    persistTemplates();
+    templateEditorModal.classList.remove('open');
+    templateModal.classList.add('open');
+    renderTemplateList();
+  });
   document.getElementById('closeTemplateModal').addEventListener('click', ()=> templateModal.classList.remove('open'));
 
   /* ============ EDITOR ============ */
@@ -2038,57 +2249,241 @@
   document.getElementById('view-editor').addEventListener('input', scheduleAutosave);
 
 
-  /* ---- import raw text ---- */
+  /* ---- import notes: paste or upload, preserving native formatting ----
+     A single rich staging box (#importStage, styled like an item's .item-text) accepts either
+     a clipboard paste or an uploaded file. HTML paste keeps bold/italic/underline/lists (our
+     existing RICH_TEXT_ALLOWED_TAGS allowlist) but drops every inline color/font, since the
+     app's own CSS is the only thing allowed to set those -- "native formatting, our color and
+     font". Plain text/markdown keeps the old heading/bullet heuristic for continuity. Headings
+     (real <h1-6> from a paste, or a "Foo:" / "# Foo" line from plain text) become section-break
+     markers automatically; the toolbar's own "+ Section Break" button lets the user mark any
+     other split point by hand, matching Prepare's section structure. */
   const importModal = document.getElementById('importModal');
-  document.getElementById('importTextBtn').addEventListener('click', ()=>{
-    document.getElementById('importTextarea').value = '';
-    importModal.classList.add('open');
-  });
-  document.getElementById('closeImportModal').addEventListener('click', ()=> importModal.classList.remove('open'));
-  document.getElementById('importApplyBtn').addEventListener('click', ()=>{
-    const raw = document.getElementById('importTextarea').value;
-    const parsed = parseRawNotes(raw);
-    if(parsed.length){
-      const s = getEditing();
-      s.sections = parsed;
-      renderSections();
-      scheduleAutosave();
-    }
-    importModal.classList.remove('open');
-  });
+  const importStage = document.getElementById('importStage');
+  const IMPORT_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','U','MARK','BR','UL','OL','LI','BLOCKQUOTE']);
 
-  function parseRawNotes(raw){
-    const lines = raw.split('\n');
-    const secs = [];
-    let cur = null;
-    let pendingList = null; // accumulates consecutive bullet lines into one real <ul> block
-    function closeList(){
-      if(pendingList){ pendingList.text += '</ul>'; cur.items.push(pendingList); pendingList = null; }
-    }
+  function makeBreakMarkerHtml(title, forceId){
+    const id = forceId || uid();
+    const label = title ? escapeHtml(title) : 'New Section';
+    return `<div class="import-break" contenteditable="false" data-title="${escapeAttr(title||'')}" data-brk="${id}">${label}<span class="brk-del" data-brk-del="${id}">✕</span></div>`;
+  }
+
+  // Same unwrap-disallowed-tags logic as sanitizeRichText, but headings are promoted to section
+  // breaks first, and our own trusted .import-break markers are passed through untouched.
+  function sanitizeImportHtml(html){
+    const container = document.createElement('div');
+    container.innerHTML = html == null ? '' : html;
+    container.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h=>{
+      const wrap = document.createElement('div');
+      wrap.innerHTML = makeBreakMarkerHtml(h.textContent.trim());
+      h.replaceWith(wrap.firstChild);
+    });
+    (function cleanNode(node){
+      let child = node.firstChild;
+      while(child){
+        const originalNext = child.nextSibling;
+        if(child.nodeType === 1){
+          const tag = child.tagName;
+          if(child.classList && child.classList.contains('import-break')){
+            child = originalNext; continue;
+          }
+          if(tag === 'SCRIPT' || tag === 'STYLE'){
+            node.removeChild(child);
+          } else if(!IMPORT_ALLOWED_TAGS.has(tag)){
+            const wasBlock = (tag === 'DIV' || tag === 'P');
+            if(wasBlock) node.insertBefore(document.createElement('br'), child);
+            const firstPromoted = child.firstChild;
+            while(child.firstChild) node.insertBefore(child.firstChild, child);
+            node.removeChild(child);
+            child = firstPromoted || originalNext;
+            continue;
+          } else {
+            Array.from(child.attributes).forEach(attr => child.removeAttribute(attr.name));
+            cleanNode(child);
+          }
+        } else if(child.nodeType !== 3){
+          node.removeChild(child);
+        }
+        child = originalNext;
+      }
+    })(container);
+    return container.innerHTML;
+  }
+
+  // Plain-text/markdown fallback: "Foo:" or "# Foo" lines become section breaks, "- foo" lines
+  // become a real <ul>, everything else becomes plain running text joined by <br>.
+  function plainTextToImportHtml(raw){
+    const lines = (raw||'').split('\n');
+    let out = '';
+    let inList = false;
+    let needsBr = false;
+    function closeList(){ if(inList){ out += '</ul>'; inList = false; needsBr = false; } }
     lines.forEach(line=>{
       const trimmed = line.trim();
       if(!trimmed) return;
       const isHeader = /^#+\s*/.test(trimmed) || (/:$/.test(trimmed) && trimmed.length < 60 && !/^[-*•~]/.test(trimmed));
       if(isHeader){
         closeList();
-        cur = { id: uid(), title: trimmed.replace(/^#+\s*/,'').replace(/:$/,'').toUpperCase(), items: [] };
-        secs.push(cur);
+        out += makeBreakMarkerHtml(trimmed.replace(/^#+\s*/,'').replace(/:$/,''));
+        needsBr = false;
+      } else if(/^[-*•]\s?/.test(trimmed)){
+        if(!inList){ out += '<ul>'; inList = true; }
+        out += '<li>' + escapeHtml(trimmed.replace(/^[-*•]\s?/,'')) + '</li>';
       } else {
-        if(!cur){ cur = { id: uid(), title:'NOTES', items:[] }; secs.push(cur); }
-        if(/^[-*•]\s?/.test(trimmed)){
-          const itemText = trimmed.replace(/^[-*•]\s?/,'');
-          if(!pendingList) pendingList = { id: uid(), type:'block', text:'<ul>' };
-          pendingList.text += '<li>' + escapeHtml(itemText) + '</li>';
-        } else {
-          closeList();
-          if(/^~\s?/.test(trimmed)) cur.items.push({id:uid(), type:'quiet', text:trimmed.replace(/^~\s?/,'')});
-          else cur.items.push({id:uid(), type:'block', text:trimmed});
-        }
+        closeList();
+        if(needsBr) out += '<br>';
+        out += escapeHtml(trimmed.replace(/^~\s?/,''));
+        needsBr = true;
       }
     });
     closeList();
+    return out;
+  }
+
+  function appendToStage(html){
+    importStage.focus();
+    const range = document.createRange();
+    range.selectNodeContents(importStage);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.execCommand('insertHTML', false, html);
+  }
+
+  document.getElementById('importTextBtn').addEventListener('click', ()=>{
+    importStage.innerHTML = '';
+    importModal.classList.add('open');
+  });
+  document.getElementById('closeImportModal').addEventListener('click', ()=> importModal.classList.remove('open'));
+
+  importStage.addEventListener('paste', (e)=>{
+    e.preventDefault();
+    const html = e.clipboardData.getData('text/html');
+    const text = e.clipboardData.getData('text/plain');
+    const insertHtml = html ? sanitizeImportHtml(html) : plainTextToImportHtml(text);
+    document.execCommand('insertHTML', false, insertHtml);
+  });
+  importStage.addEventListener('click', (e)=>{
+    const del = e.target.closest('.brk-del');
+    if(del) del.closest('.import-break').remove();
+  });
+
+  function normalizeBreakPlacement(marker){
+    if(marker.parentNode === importStage) return;
+    let anchor = marker;
+    while(anchor.parentNode && anchor.parentNode !== importStage) anchor = anchor.parentNode;
+    if(!anchor.parentNode) return;
+    marker.remove();
+    importStage.insertBefore(marker, anchor.nextSibling);
+  }
+  document.getElementById('importBreakBtn').addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    importStage.focus();
+    const id = uid();
+    document.execCommand('insertHTML', false, makeBreakMarkerHtml('', id));
+    const marker = importStage.querySelector('[data-brk="'+id+'"]');
+    if(!marker) return;
+    normalizeBreakPlacement(marker);
+    // A contenteditable="false" block leaves the caret sitting just *before* it, so typing
+    // right after clicking this button would silently backfill the section that just closed.
+    // Give the caret an explicit home immediately after the marker instead.
+    const range = document.createRange();
+    if(marker.nextSibling){
+      range.setStart(marker.nextSibling, 0);
+    } else {
+      const spacer = document.createTextNode('​');
+      importStage.appendChild(spacer);
+      range.setStart(spacer, 0);
+    }
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+
+  document.getElementById('importUploadBtn').addEventListener('click', ()=> document.getElementById('importFileInput').click());
+  document.getElementById('importFileInput').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(!file) return;
+    let text;
+    try{ text = await file.text(); } catch(err){ showToast("Couldn't read that file.", {danger:true}); return; }
+    const isHtml = /\.html?$/i.test(file.name);
+    appendToStage(isHtml ? sanitizeImportHtml(text) : plainTextToImportHtml(text));
+  });
+
+  function updateImportToolbarState(){
+    document.getElementById('importToolbar').querySelectorAll('button[data-cmd]').forEach(btn=>{
+      const cmd = btn.dataset.cmd;
+      if(cmd === 'indent' || cmd === 'outdent') return;
+      let active = false;
+      try{ active = document.queryCommandState(cmd); } catch(e){}
+      btn.classList.toggle('active', active);
+    });
+  }
+  document.getElementById('importToolbar').querySelectorAll('button[data-cmd]').forEach(btn=>{
+    btn.addEventListener('pointerdown', (e)=>{
+      e.preventDefault();
+      importStage.focus();
+      document.execCommand(btn.dataset.cmd);
+      updateImportToolbarState();
+    });
+  });
+  importStage.addEventListener('keyup', updateImportToolbarState);
+  importStage.addEventListener('mouseup', updateImportToolbarState);
+
+  // Splits the staged content on .import-break markers into sections, each holding one rich-text
+  // 'block' item -- the same shape every item already stores, so nothing downstream (Prepare,
+  // Present, PDF export) needs to know this content arrived via import rather than typed by hand.
+  function importStagingToSections(containerEl){
+    const secs = [];
+    let cur = null;
+    let buf = [];
+    function flush(){
+      if(!cur || !buf.length) return;
+      const raw = buf.map(n => n.nodeType===1 ? n.outerHTML : escapeHtml(n.textContent)).join('');
+      const html = sanitizeRichText(raw).replace(/​/g,'').replace(/^(<br>\s*)+/,'').replace(/(<br>\s*)+$/,'').trim();
+      if(html) cur.items.push({ id: uid(), type:'block', text: html });
+      buf = [];
+    }
+    function startSection(title){
+      flush();
+      cur = { id: uid(), title: (title||'NOTES').toUpperCase().slice(0,80), items: [] };
+      secs.push(cur);
+    }
+    Array.from(containerEl.childNodes).forEach(node=>{
+      if(node.nodeType===1 && node.classList && node.classList.contains('import-break')){
+        startSection(node.dataset.title);
+        return;
+      }
+      if(node.nodeType===3 && !node.textContent.trim()) return;
+      if(!cur) startSection('');
+      buf.push(node);
+    });
+    flush();
     return secs;
   }
+
+  document.getElementById('importApplyBtn').addEventListener('click', async ()=>{
+    const parsed = importStagingToSections(importStage);
+    if(!parsed.length){ showToast('Nothing to import yet.', {danger:true}); return; }
+    const s = getEditing();
+    const hasExisting = s.sections.some(sec => sec.items.length > 0);
+    if(hasExisting){
+      const ok = await showConfirm({
+        title: 'Replace current sections?',
+        message: "This will replace everything currently in this sermon with the imported content. This can't be undone.",
+        confirmLabel: 'Replace'
+      });
+      if(!ok) return;
+    }
+    s.sections = parsed;
+    renderSections();
+    scheduleAutosave();
+    importModal.classList.remove('open');
+    showToast('Imported into sermon.');
+  });
 
   /* ============ ILLUSTRATIONS ============ */
   // Tracks which sermons an illustration has already been dropped into (via sourceIllustId,
