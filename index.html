@@ -416,6 +416,11 @@
   .illust-card .itags{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
   .illust-usage{ font-size:11px; color:var(--gold-dim); font-weight:600; margin-bottom:8px; }
   .illust-card .iactions{ display:flex; gap:8px; }
+  .illust-thumb{
+    display:block; width:100%; max-height:160px; object-fit:cover; border-radius:9px;
+    margin-bottom:10px; background:var(--panel-2);
+  }
+  .illust-thumb-sm{ max-height:90px; }
   #fabAdd{
     position:absolute; bottom:calc(78px + env(safe-area-inset-bottom)); right:20px;
     width:52px; height:52px; border-radius:50%; background:var(--cream); color:var(--ink); border:2px solid var(--gold);
@@ -429,6 +434,9 @@
   }
   #illustForm textarea{ min-height:110px; resize:none; line-height:1.5; }
   #illustForm label{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:4px; }
+  #illustImagePreviewWrap{ margin-bottom:10px; }
+  #illustImagePreviewWrap .illust-thumb{ max-height:220px; margin-bottom:8px; }
+  #illustImagePreviewWrap .btn{ width:100%; }
 
   /* illustration picker (from editor) */
   .ipick-card{ background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:8px; cursor:pointer; }
@@ -785,6 +793,10 @@
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2 id="illustModalTitle">Add Illustration</h2><button class="btn icon" id="closeIllustModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll" id="illustForm">
+      <div id="illustImagePreviewWrap" style="display:none;">
+        <img id="illustImagePreview" class="illust-thumb" alt="">
+        <button class="btn" id="illustRemoveImageBtn" type="button">Remove Image</button>
+      </div>
       <label>Title</label>
       <input id="illustTitleInput" placeholder="e.g. The lighthouse story">
       <label>Tags (comma separated)</label>
@@ -1057,7 +1069,7 @@
       const raw = localStorage.getItem(TEMPLATES_KEY);
       if(raw){ const parsed = JSON.parse(raw); if(Array.isArray(parsed) && parsed.length) return parsed; }
     } catch(e){}
-    const seeded = DEFAULT_TEMPLATES.map(t=>({...t, sections:[...t.sections]}));
+    const seeded = DEFAULT_TEMPLATES.map(t=>({...t, sections:[...t.sections], updatedAt: Date.now()}));
     localStorage.setItem(TEMPLATES_KEY, JSON.stringify(seeded));
     return seeded;
   }
@@ -1345,7 +1357,8 @@
       exportedAt: new Date().toISOString(),
       exportedBy: deviceId,
       sermons: sermons,
-      illustrations: illustrations
+      illustrations: illustrations,
+      templates: templates
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1379,9 +1392,10 @@
           return;
         }
         const fromDate = data.exportedAt ? new Date(data.exportedAt).toLocaleDateString() : 'an unknown date';
+        const templateNote = Array.isArray(data.templates) && data.templates.length ? `, and ${data.templates.length} template(s)` : '';
         const ok = await showConfirm({
           title: 'Merge this backup?',
-          message: `This backup has ${data.sermons.length} sermon(s) and ${data.illustrations.length} illustration(s), from ${fromDate}. It will be merged into what you already have, keeping whichever version of each item was edited most recently.`,
+          message: `This backup has ${data.sermons.length} sermon(s) and ${data.illustrations.length} illustration(s)${templateNote}, from ${fromDate}. It will be merged into what you already have, keeping whichever version of each item was edited most recently.`,
           confirmLabel: 'Merge',
           danger: false
         });
@@ -1400,8 +1414,15 @@
           if(!existing){ illustrations.push(normalizeIllustration(incoming)); }
           else if((incoming.updatedAt||0) > (existing.updatedAt||0)){ Object.assign(existing, normalizeIllustration(incoming)); }
         });
+        const templateById = new Map(templates.map(t=>[t.id, t]));
+        (data.templates||[]).forEach(incoming=>{
+          const existing = templateById.get(incoming.id);
+          if(!existing){ templates.push(incoming); }
+          else if((incoming.updatedAt||0) > (existing.updatedAt||0)){ Object.assign(existing, incoming); }
+        });
         persistSermons();
         persistIllust();
+        persistTemplates();
         renderLibrary();
         showToast('Backup restored.');
       } catch(err){
@@ -1461,7 +1482,7 @@
       if(!ok) return;
       const existingIds = new Set(templates.map(t=>t.id));
       DEFAULT_TEMPLATES.forEach(dt=>{
-        if(!existingIds.has(dt.id)) templates.push({...dt, sections:[...dt.sections]});
+        if(!existingIds.has(dt.id)) templates.push({...dt, sections:[...dt.sections], updatedAt: Date.now()});
       });
       persistTemplates();
       renderTemplateList();
@@ -1532,9 +1553,9 @@
     const desc = document.getElementById('tplDescInput').value.trim() || sections.join(' → ');
     if(editingTemplateId){
       const existing = templates.find(t=>t.id===editingTemplateId);
-      Object.assign(existing, { name, desc, sections });
+      Object.assign(existing, { name, desc, sections, updatedAt: Date.now() });
     } else {
-      templates.push({ id: uid(), name, desc, sections });
+      templates.push({ id: uid(), name, desc, sections, updatedAt: Date.now() });
     }
     persistTemplates();
     templateEditorModal.classList.remove('open');
@@ -2268,9 +2289,63 @@
     return `<div class="import-break" contenteditable="false" data-title="${escapeAttr(title||'')}" data-brk="${id}">${label}<span class="brk-del" data-brk-del="${id}">✕</span></div>`;
   }
 
+  function blobToDataUrl(blob){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = ()=> resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // A word processor doc has nowhere else for an inline picture to go, so rather than silently
+  // dropping it (the only other option -- <img> was never in the rich-text allowlist), every
+  // image encountered during import becomes its own Illustration library entry instead.
+  function addImageIllustration(dataUrl, title){
+    illustrations.push(normalizeIllustration({
+      id: uid(), title: (title||'').trim() || 'Imported Image', tags: [], body: '',
+      imageData: dataUrl, updatedAt: Date.now()
+    }));
+  }
+
+  // Pasting an image directly (e.g. a screenshot, or an image copied on its own) usually arrives
+  // as a real file on the clipboard rather than an <img> in the HTML -- check that first.
+  async function extractImagesFromClipboardFiles(dataTransfer){
+    const files = Array.from((dataTransfer && dataTransfer.files) || []).filter(f => f.type.startsWith('image/'));
+    let count = 0;
+    for(const file of files){
+      try{ addImageIllustration(await blobToDataUrl(file), file.name.replace(/\.[a-z0-9]+$/i, '')); count++; } catch(e){}
+    }
+    if(count) persistIllust();
+    return count;
+  }
+
+  // <img> tags embedded in pasted/uploaded HTML: a data: src is already self-contained and safe
+  // to keep; a blob: src is fetchable only while the page that created it is still open, so grab
+  // it now. Anything else (a file:// path, or a relative link to a sibling image the browser has
+  // no access to) can't be resolved at all and is dropped, same as before this feature existed.
+  async function extractImagesFromHtml(container){
+    const imgs = Array.from(container.querySelectorAll('img'));
+    let count = 0;
+    for(const img of imgs){
+      const src = img.getAttribute('src') || '';
+      let dataUrl = null;
+      if(/^data:image\//i.test(src)){
+        dataUrl = src;
+      } else if(/^blob:/i.test(src)){
+        try{ dataUrl = await blobToDataUrl(await (await fetch(src)).blob()); } catch(e){}
+      }
+      if(dataUrl){ addImageIllustration(dataUrl, img.getAttribute('alt')); count++; }
+      img.remove();
+    }
+    if(count) persistIllust();
+    return count;
+  }
+
   // Same unwrap-disallowed-tags logic as sanitizeRichText, but headings are promoted to section
-  // breaks first, and our own trusted .import-break markers are passed through untouched.
-  function sanitizeImportHtml(html){
+  // breaks first, images are siphoned off into Illustrations, and our own trusted .import-break
+  // markers are passed through untouched.
+  async function sanitizeImportHtml(html){
     const container = document.createElement('div');
     container.innerHTML = html == null ? '' : html;
     container.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h=>{
@@ -2278,6 +2353,7 @@
       wrap.innerHTML = makeBreakMarkerHtml(h.textContent.trim());
       h.replaceWith(wrap.firstChild);
     });
+    const imgCount = await extractImagesFromHtml(container);
     (function cleanNode(node){
       let child = node.firstChild;
       while(child){
@@ -2307,7 +2383,7 @@
         child = originalNext;
       }
     })(container);
-    return container.innerHTML;
+    return { html: container.innerHTML, imgCount };
   }
 
   // Plain-text/markdown fallback: "Foo:" or "# Foo" lines become section breaks, "- foo" lines
@@ -2357,12 +2433,22 @@
   });
   document.getElementById('closeImportModal').addEventListener('click', ()=> importModal.classList.remove('open'));
 
-  importStage.addEventListener('paste', (e)=>{
+  importStage.addEventListener('paste', async (e)=>{
     e.preventDefault();
     const html = e.clipboardData.getData('text/html');
     const text = e.clipboardData.getData('text/plain');
-    const insertHtml = html ? sanitizeImportHtml(html) : plainTextToImportHtml(text);
+    const fileImgCount = await extractImagesFromClipboardFiles(e.clipboardData);
+    let insertHtml, htmlImgCount = 0;
+    if(html){
+      const result = await sanitizeImportHtml(html);
+      insertHtml = result.html;
+      htmlImgCount = result.imgCount;
+    } else {
+      insertHtml = plainTextToImportHtml(text);
+    }
     document.execCommand('insertHTML', false, insertHtml);
+    const totalImgs = fileImgCount + htmlImgCount;
+    if(totalImgs) showToast(`Added ${totalImgs} image${totalImgs>1?'s':''} to Illustrations.`);
   });
   importStage.addEventListener('click', (e)=>{
     const del = e.target.closest('.brk-del');
@@ -2410,7 +2496,13 @@
     let text;
     try{ text = await file.text(); } catch(err){ showToast("Couldn't read that file.", {danger:true}); return; }
     const isHtml = /\.html?$/i.test(file.name);
-    appendToStage(isHtml ? sanitizeImportHtml(text) : plainTextToImportHtml(text));
+    if(isHtml){
+      const { html, imgCount } = await sanitizeImportHtml(text);
+      appendToStage(html);
+      if(imgCount) showToast(`Added ${imgCount} image${imgCount>1?'s':''} to Illustrations.`);
+    } else {
+      appendToStage(plainTextToImportHtml(text));
+    }
   });
 
   function updateImportToolbarState(){
@@ -2528,6 +2620,7 @@
       const card = document.createElement('div');
       card.className = 'illust-card';
       card.innerHTML = `
+        ${ill.imageData ? `<img class="illust-thumb" src="${escapeAttr(ill.imageData)}" alt="">` : ''}
         <p class="ititle">${escapeHtml(ill.title||'Untitled')}</p>
         <p class="ibody">${escapeHtml(ill.body)}</p>
         <div class="itags">${(ill.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
@@ -2551,6 +2644,12 @@
 
   const illustModal = document.getElementById('illustModal');
   let editingIllustId = null;
+  let editingIllustImage = null;
+  function renderIllustImagePreview(){
+    const wrap = document.getElementById('illustImagePreviewWrap');
+    wrap.style.display = editingIllustImage ? '' : 'none';
+    document.getElementById('illustImagePreview').src = editingIllustImage || '';
+  }
   function openIllustModal(id){
     editingIllustId = id || null;
     const ill = id ? illustrations.find(x=>x.id===id) : null;
@@ -2558,8 +2657,14 @@
     document.getElementById('illustTitleInput').value = ill ? ill.title : '';
     document.getElementById('illustTagsInput').value = ill ? (ill.tags||[]).join(', ') : '';
     document.getElementById('illustBodyInput').value = ill ? ill.body : '';
+    editingIllustImage = ill ? (ill.imageData || null) : null;
+    renderIllustImagePreview();
     illustModal.classList.add('open');
   }
+  document.getElementById('illustRemoveImageBtn').addEventListener('click', ()=>{
+    editingIllustImage = null;
+    renderIllustImagePreview();
+  });
   document.getElementById('fabAdd').addEventListener('click', ()=> openIllustModal(null));
   document.getElementById('illustSearchInput').addEventListener('input', e=>{
     illustSearchQuery = e.target.value;
@@ -2570,12 +2675,12 @@
     const title = document.getElementById('illustTitleInput').value.trim();
     const tags = document.getElementById('illustTagsInput').value.split(',').map(t=>t.trim()).filter(Boolean);
     const body = document.getElementById('illustBodyInput').value.trim();
-    if(!title && !body){ illustModal.classList.remove('open'); return; }
+    if(!title && !body && !editingIllustImage){ illustModal.classList.remove('open'); return; }
     if(editingIllustId){
       const ill = illustrations.find(x=>x.id===editingIllustId);
-      ill.title=title; ill.tags=tags; ill.body=body; ill.updatedAt=Date.now();
+      ill.title=title; ill.tags=tags; ill.body=body; ill.imageData=editingIllustImage; ill.updatedAt=Date.now();
     } else {
-      illustrations.push({ id:uid(), schemaVersion:1, title, tags, body, updatedAt:Date.now() });
+      illustrations.push({ id:uid(), schemaVersion:1, title, tags, body, imageData:editingIllustImage, updatedAt:Date.now() });
     }
     persistIllust();
     illustModal.classList.remove('open');
@@ -2596,7 +2701,7 @@
       visible.forEach(ill=>{
         const c = document.createElement('div');
         c.className = 'ipick-card';
-        c.innerHTML = `<div class="ptitle">${escapeHtml(ill.title||'Untitled')}</div><div class="pbody">${escapeHtml(ill.body)}</div>${usageBadgeHtml(ill)}`;
+        c.innerHTML = `${ill.imageData ? `<img class="illust-thumb illust-thumb-sm" src="${escapeAttr(ill.imageData)}" alt="">` : ''}<div class="ptitle">${escapeHtml(ill.title||'Untitled')}</div><div class="pbody">${escapeHtml(ill.body)}</div>${usageBadgeHtml(ill)}`;
         c.addEventListener('click', ()=>{
           pickTargetSection.items.push({ id:uid(), type:'illustration', text: seedRichHtml(ill.body), sourceIllustId: ill.id });
           illustPickModal.classList.remove('open');
