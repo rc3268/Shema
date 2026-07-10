@@ -583,6 +583,7 @@
       <button class="btn" id="importTextBtn" title="Paste in sermon notes and auto-split them into sections" style="flex:0 0 auto; padding:9px 12px;">Import</button>
       <button class="btn" id="saveBtn">Save</button>
       <button class="btn" id="exportProBtn" title="Export for ProPresenter">Export<span class="hide-narrow"> to ProPresenter</span></button>
+      <button class="btn" id="exportPdfBtn" title="Print or save a full manuscript as PDF">Print<span class="hide-narrow"> Manuscript</span></button>
       <button class="btn gold" id="presentBtn">Present</button>
     </div>
   </div>
@@ -1661,6 +1662,7 @@
   document.getElementById('saveBtn').addEventListener('click', ()=>{ saveEditing(); showView('library'); });
   document.getElementById('presentBtn').addEventListener('click', ()=>{ saveEditing(); presentSermon(editingId); });
   document.getElementById('exportProBtn').addEventListener('click', ()=>{ saveEditing(); exportForProPresenter(getEditing()); });
+  document.getElementById('exportPdfBtn').addEventListener('click', ()=>{ saveEditing(); exportManuscript(getEditing()); });
 
   /* ---- Export for ProPresenter (RTF — a format ProPresenter natively imports) ---- */
   const BIBLE_BOOKS = [
@@ -1754,6 +1756,56 @@
     a.click();
     document.body.removeChild(a);
     setTimeout(()=> URL.revokeObjectURL(url), 2000);
+  }
+
+  // Unlike the ProPresenter export (scripture/illustration only, for slides), this includes
+  // every item type -- it's a full reading manuscript, for a paper backup or sharing with staff.
+  function exportManuscript(sermon){
+    if(!sermon || !sermon.sections || !sermon.sections.some(sec => sec.items.length > 0)){
+      showToast('Nothing to export yet — add some content first.', {danger:true});
+      return;
+    }
+    const dateStr = sermon.date ? new Date(sermon.date+'T00:00:00').toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}) : '';
+    const metaLine = [sermon.series, dateStr].filter(Boolean).join(' — ');
+
+    const sectionsHtml = sermon.sections.map(sec=>{
+      const itemsHtml = sec.items.map(it=>{
+        const body = it.text || '';
+        if(it.type === 'scripture') return `<div class="m-item m-scripture">${body}</div>`;
+        if(it.type === 'illustration') return `<div class="m-item m-illustration"><span class="m-label">Illustration</span>${body}</div>`;
+        if(it.type === 'quiet') return `<div class="m-item m-quiet">${body}</div>`;
+        return `<div class="m-item">${body}</div>`;
+      }).join('');
+      if(!itemsHtml) return '';
+      return `<div class="m-section"><h2>${escapeHtml(sec.title || '')}</h2>${itemsHtml}</div>`;
+    }).join('');
+
+    const doc = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(sermon.title || 'Sermon')}</title>
+    <style>
+      body{ font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; max-width:720px; margin:40px auto; padding:0 24px; line-height:1.5; }
+      h1{ font-size:28px; margin:0 0 4px; }
+      .m-meta{ font-family: Helvetica, Arial, sans-serif; font-size:13px; color:#666; margin:0 0 32px; text-transform:uppercase; letter-spacing:0.5px; }
+      h2{ font-family: Helvetica, Arial, sans-serif; font-size:13px; text-transform:uppercase; letter-spacing:1px; color:#886b3a; border-bottom:1px solid #ddd; padding-bottom:6px; margin:32px 0 12px; }
+      .m-item{ font-size:16px; margin:0 0 14px; }
+      .m-quiet{ font-style:italic; color:#555; }
+      .m-scripture{ border-left:3px solid #886b3a; padding-left:14px; color:#333; }
+      .m-illustration{ background:#f7f4ec; padding:12px 14px; border-radius:6px; }
+      .m-label{ display:block; font-family: Helvetica, Arial, sans-serif; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#886b3a; margin-bottom:4px; }
+      @media print{ body{ margin:0 auto; } }
+    </style></head>
+    <body>
+      <h1>${escapeHtml(sermon.title || 'Untitled Sermon')}</h1>
+      ${metaLine ? `<p class="m-meta">${escapeHtml(metaLine)}</p>` : ''}
+      ${sectionsHtml}
+    </body></html>`;
+
+    const w = window.open('', '_blank');
+    if(!w){ showToast("Couldn't open the print preview — check your browser's popup blocker.", {danger:true}); return; }
+    w.document.open();
+    w.document.write(doc);
+    w.document.close();
+    w.focus();
+    setTimeout(()=>{ w.print(); }, 300);
   }
 
   function saveEditing(){
