@@ -425,6 +425,7 @@
     position:absolute; bottom:calc(78px + env(safe-area-inset-bottom)); right:20px;
     width:52px; height:52px; border-radius:50%; background:var(--cream); color:var(--ink); border:2px solid var(--gold);
     font-size:24px; box-shadow:0 4px 14px rgba(0,0,0,.4); cursor:pointer; z-index:10;
+    display:flex; align-items:center; justify-content:center; padding:0;
   }
 
   /* form modal (illustration edit) */
@@ -797,6 +798,8 @@
         <img id="illustImagePreview" class="illust-thumb" alt="">
         <button class="btn" id="illustRemoveImageBtn" type="button">Remove Image</button>
       </div>
+      <button class="btn" id="illustAddImageBtn" type="button" style="width:100%; margin-bottom:10px;">+ Add Image</button>
+      <input type="file" id="illustImageFileInput" accept="image/*" style="display:none;">
       <label>Title</label>
       <input id="illustTitleInput" placeholder="e.g. The lighthouse story">
       <label>Tags (comma separated)</label>
@@ -2693,6 +2696,7 @@
     const wrap = document.getElementById('illustImagePreviewWrap');
     wrap.style.display = editingIllustImage ? '' : 'none';
     document.getElementById('illustImagePreview').src = editingIllustImage || '';
+    document.getElementById('illustAddImageBtn').style.display = editingIllustImage ? 'none' : '';
   }
   function openIllustModal(id){
     editingIllustId = id || null;
@@ -2708,6 +2712,18 @@
   document.getElementById('illustRemoveImageBtn').addEventListener('click', ()=>{
     editingIllustImage = null;
     renderIllustImagePreview();
+  });
+  document.getElementById('illustAddImageBtn').addEventListener('click', ()=> document.getElementById('illustImageFileInput').click());
+  document.getElementById('illustImageFileInput').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(!file || !file.type.startsWith('image/')) return;
+    try{
+      editingIllustImage = await compressImageDataUrl(await blobToDataUrl(file));
+      renderIllustImagePreview();
+    } catch(err){
+      showToast("Couldn't read that image.", {danger:true});
+    }
   });
   document.getElementById('fabAdd').addEventListener('click', ()=> openIllustModal(null));
   document.getElementById('illustSearchInput').addEventListener('input', e=>{
