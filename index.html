@@ -105,7 +105,6 @@
   }
   #brandbar.editor-active #editorTitleDisplay:active{ background:var(--panel-2); color:var(--text); }
   #brandbar.editor-active #toolbarToggleBtn{ display:flex; margin-left:auto; }
-  #toolbarToggleBtn{ font-size:18px; line-height:1; }
   #toolbarToggleBtn.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); }
   #darkModeBtn{ margin-left:8px; }
   #brandbar:not(.editor-active) #darkModeBtn{ margin-left:auto; }
@@ -149,7 +148,7 @@
     letter-spacing:.5px; text-transform:uppercase; font-weight:600; font-family:'Playfair Display',serif;
   }
   .nav-item .ic{ width:22px; height:22px; object-fit:contain; display:block; }
-  .nav-item.active{ color:var(--gold); } .nav-item.active .ic{ filter:invert(1) sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.05); }
+  .nav-item.active{ color:var(--gold); } .nav-item.active .ic{ filter:invert(1) sepia(1) saturate(5) hue-rotate(-10deg) brightness(0.9) contrast(1.4); }
   body.dark-mode .nav-item.active .ic{ filter:sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.05); }
 
   /* ===== LIBRARY ===== */
@@ -207,7 +206,7 @@
   }
   #titleInput{ font-family:'Playfair Display',serif; font-size:19px; font-weight:600; }
   .meta-row{ display:flex; gap:8px; }
-  .meta-row input{ flex:1; font-size:13px; }
+  .meta-row input{ flex:1; min-width:0; font-size:13px; }
   #sectionsWrap{ padding:14px 14px 100px; }
   #prepResizeHandle{ position:fixed; width:14px; margin-left:-7px; cursor:ew-resize; z-index:30; display:none; touch-action:none; }
   #prepResizeHandle::before{ content:''; position:absolute; left:6px; top:0; bottom:0; width:2px; background:var(--line); opacity:0; transition:opacity .15s, background .15s; border-radius:2px; }
@@ -357,7 +356,7 @@
   .illust-card .iactions{ display:flex; gap:8px; }
   #fabAdd{
     position:absolute; bottom:calc(78px + env(safe-area-inset-bottom)); right:20px;
-    width:52px; height:52px; border-radius:50%; background:var(--gold); color:var(--ink); border:none;
+    width:52px; height:52px; border-radius:50%; background:var(--cream); color:var(--ink); border:2px solid var(--gold);
     font-size:24px; box-shadow:0 4px 14px rgba(0,0,0,.4); cursor:pointer; z-index:10;
   }
 
@@ -507,7 +506,7 @@
     <img src="icons/brandbar.png" class="brand-mark" alt="">
     <span class="brand-word">shema</span>
     <button id="editorTitleDisplay" title="Edit sermon details"></button>
-    <button class="btn icon" id="toolbarToggleBtn" title="Toggle formatting toolbar">&#8942;</button>
+    <button class="btn icon" id="toolbarToggleBtn" title="Toggle formatting toolbar"><img class="mono-ic" src="icons/toolbar-toggle.png" data-light="icons/toolbar-toggle.png" data-dark="icons/toolbar-toggle-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
     <button class="btn icon dark-toggle" id="darkModeBtn" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:18px;width:18px;display:block;" alt=""></button>
   </div>
 
@@ -562,9 +561,10 @@
         <button data-cmd="underline" title="Underline"><u>U</u></button>
         <button id="highlightBtn" title="Highlight"><mark>H</mark></button>
         <span class="toolbar-divider"></span>
-        <button data-cmd="insertUnorderedList" title="Toggle bullet"><img class="mono-ic" src="icons/bullet-list.png" data-light="icons/bullet-list.png" data-dark="icons/bullet-list-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
-        <button data-cmd="outdent" title="Decrease indent">&#8592;</button>
-        <button data-cmd="indent" title="Increase indent">&#8594;</button>
+        <button data-cmd="insertUnorderedList" title="Toggle bullet list"><img class="mono-ic" src="icons/bullet-list.png" data-light="icons/bullet-list.png" data-dark="icons/bullet-list-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
+        <button data-cmd="insertOrderedList" title="Toggle numbered list"><img class="mono-ic" src="icons/numbered-list.png" data-light="icons/numbered-list.png" data-dark="icons/numbered-list-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
+        <button data-cmd="outdent" title="Decrease indent"><img class="mono-ic" src="icons/outdent.png" data-light="icons/outdent.png" data-dark="icons/outdent-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
+        <button data-cmd="indent" title="Increase indent"><img class="mono-ic" src="icons/indent.png" data-light="icons/indent.png" data-dark="icons/indent-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
         <span class="toolbar-divider"></span>
         <button class="vtool-plus" id="addItemBtn" title="Add content">+</button>
         <span id="autosaveStatus"></span>
