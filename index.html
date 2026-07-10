@@ -354,6 +354,7 @@
   .illust-card .ititle{ font-family:'Playfair Display',serif; font-weight:600; font-size:16px; margin:0 0 6px; }
   .illust-card .ibody{ font-size:13px; color:var(--muted); line-height:1.5; margin:0 0 8px; max-height:60px; overflow:hidden; }
   .illust-card .itags{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .illust-usage{ font-size:11px; color:var(--gold-dim); font-weight:600; margin-bottom:8px; }
   .illust-card .iactions{ display:flex; gap:8px; }
   #fabAdd{
     position:absolute; bottom:calc(78px + env(safe-area-inset-bottom)); right:20px;
@@ -374,6 +375,7 @@
   .ipick-card:active{ background:var(--panel-3); }
   .ipick-card .ptitle{ font-weight:700; font-size:14px; margin-bottom:4px; font-family:'Playfair Display',serif; }
   .ipick-card .pbody{ font-size:12px; color:var(--muted); max-height:40px; overflow:hidden; }
+  .ipick-card .illust-usage{ margin-bottom:0; margin-top:6px; }
 
   /* ===== PRESENT (unchanged core) ===== */
   #presentTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; position:relative; overflow-x:auto; -webkit-overflow-scrolling:touch; }
@@ -1898,6 +1900,23 @@
   }
 
   /* ============ ILLUSTRATIONS ============ */
+  // Tracks which sermons an illustration has already been dropped into (via sourceIllustId,
+  // set when inserted through the picker below), so a pastor can see "already used in 2
+  // sermons" before accidentally retelling the same story to the same congregation.
+  function illustrationUsage(id){
+    const titles = [];
+    sermons.filter(s=>!s.deleted).forEach(s=>{
+      const used = s.sections.some(sec => sec.items.some(it => it.type==='illustration' && it.sourceIllustId===id));
+      if(used) titles.push(s.title || 'Untitled Sermon');
+    });
+    return { count: titles.length, titles };
+  }
+  function usageBadgeHtml(ill){
+    const usage = illustrationUsage(ill.id);
+    if(usage.count === 0) return '';
+    const label = usage.count === 1 ? 'Used in 1 sermon' : `Used in ${usage.count} sermons`;
+    return `<div class="illust-usage" title="${escapeAttr(usage.titles.join(', '))}">${label}</div>`;
+  }
   function renderIllustrations(){
     const list = document.getElementById('illustList');
     const visible = illustrations.filter(i=>!i.deleted);
@@ -1914,6 +1933,7 @@
         <p class="ititle">${escapeHtml(ill.title||'Untitled')}</p>
         <p class="ibody">${escapeHtml(ill.body)}</p>
         <div class="itags">${(ill.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
+        ${usageBadgeHtml(ill)}
         <div class="iactions">
           <button class="btn icon" data-act="edit">Edit</button>
           <button class="btn icon danger" data-act="delete">Delete</button>
@@ -1974,9 +1994,9 @@
       visible.forEach(ill=>{
         const c = document.createElement('div');
         c.className = 'ipick-card';
-        c.innerHTML = `<div class="ptitle">${escapeHtml(ill.title||'Untitled')}</div><div class="pbody">${escapeHtml(ill.body)}</div>`;
+        c.innerHTML = `<div class="ptitle">${escapeHtml(ill.title||'Untitled')}</div><div class="pbody">${escapeHtml(ill.body)}</div>${usageBadgeHtml(ill)}`;
         c.addEventListener('click', ()=>{
-          pickTargetSection.items.push({ id:uid(), type:'illustration', text: seedRichHtml(ill.body) });
+          pickTargetSection.items.push({ id:uid(), type:'illustration', text: seedRichHtml(ill.body), sourceIllustId: ill.id });
           illustPickModal.classList.remove('open');
           renderSections();
         });
