@@ -166,6 +166,13 @@
   .sermon-card .actions{ display:flex; gap:6px; flex-shrink:0; }
   #emptyLibrary{ text-align:center; color:var(--muted); padding:60px 30px; line-height:1.6; }
   #emptyLibrary button{ margin-top:14px; }
+  #librarySearchRow{ padding:0 14px 12px; flex-shrink:0; }
+  #librarySearchRow input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:9px 12px; font-size:14px; font-family:inherit;
+    -webkit-appearance:none; appearance:none;
+  }
+  #librarySearchRow input::placeholder{ color:var(--muted); }
   #libraryStatusRow{ display:flex; align-items:center; justify-content:space-between; padding:0 14px 10px; flex-shrink:0; }
   #backupStatus{ font-size:12px; color:var(--muted); }
   #backupStatus.stale{ color:var(--orange); font-weight:600; }
@@ -524,6 +531,7 @@
       </div>
     </div>
     <input type="file" id="backupFileInput" accept="application/json" style="display:none;">
+    <div id="librarySearchRow"><input type="search" id="librarySearchInput" placeholder="Search titles, series, and sermon text…"></div>
     <div id="libraryStatusRow">
       <span id="backupStatus"></span>
       <div id="sortToggle">
@@ -596,6 +604,7 @@
       <h1>Illustrations</h1>
       <span style="font-size:12px;color:var(--muted);" id="illustCount"></span>
     </div>
+    <div id="librarySearchRow"><input type="search" id="illustSearchInput" placeholder="Search titles, tags, and illustration text…"></div>
     <div class="scroll"><div id="illustList"></div></div>
     <button id="fabAdd" title="Add illustration"><img src="icons/fabadd.png" style="height:24px;width:24px;display:block;" alt=""></button>
   </div>
@@ -995,6 +1004,20 @@
   /* ============ LIBRARY ============ */
   let activeSeriesFilter = null;
   let librarySortMode = 'recent'; // 'recent' | 'date'
+  let librarySearchQuery = '';
+
+  // Searches title/series/section titles/item text (HTML stripped) -- the point is finding
+  // that phrase, scripture, or story from a sermon written months or years ago, not just
+  // filtering by what's visible in the card (title/series already covered by the UI itself).
+  function sermonMatchesQuery(s, q){
+    if(!q) return true;
+    if((s.title||'').toLowerCase().includes(q)) return true;
+    if((s.series||'').toLowerCase().includes(q)) return true;
+    return (s.sections||[]).some(sec =>
+      (sec.title||'').toLowerCase().includes(q) ||
+      (sec.items||[]).some(it => htmlToPlainText(it.text).toLowerCase().includes(q))
+    );
+  }
 
   function timeAgo(ms){
     if(!ms) return null;
@@ -1024,6 +1047,11 @@
     el.textContent = 'Last backup: ' + timeAgo(last);
     el.classList.toggle('stale', stale);
   }
+
+  document.getElementById('librarySearchInput').addEventListener('input', e=>{
+    librarySearchQuery = e.target.value;
+    renderLibrary();
+  });
 
   document.querySelectorAll('#sortToggle button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -1085,8 +1113,12 @@
     const list = document.getElementById('libraryList');
     let items = sermons.filter(s=>!s.deleted);
     if(activeSeriesFilter) items = items.filter(s=>s.series===activeSeriesFilter);
+    const q = librarySearchQuery.trim().toLowerCase();
+    if(q) items = items.filter(s=>sermonMatchesQuery(s, q));
     if(items.length===0){
-      list.innerHTML = `<div id="emptyLibrary">No sermons yet.<br>Tap "+ New" to start prepping your first message.</div>`;
+      list.innerHTML = (q || activeSeriesFilter)
+        ? `<div id="emptyLibrary">No sermons match. Try a different search or filter.</div>`
+        : `<div id="emptyLibrary">No sermons yet.<br>Tap "+ New" to start prepping your first message.</div>`;
       return;
     }
     list.innerHTML = '';
@@ -1917,12 +1949,24 @@
     const label = usage.count === 1 ? 'Used in 1 sermon' : `Used in ${usage.count} sermons`;
     return `<div class="illust-usage" title="${escapeAttr(usage.titles.join(', '))}">${label}</div>`;
   }
+  let illustSearchQuery = '';
+  function illustMatchesQuery(ill, q){
+    if(!q) return true;
+    if((ill.title||'').toLowerCase().includes(q)) return true;
+    if((ill.body||'').toLowerCase().includes(q)) return true;
+    return (ill.tags||[]).some(t=>t.toLowerCase().includes(q));
+  }
   function renderIllustrations(){
     const list = document.getElementById('illustList');
-    const visible = illustrations.filter(i=>!i.deleted);
-    document.getElementById('illustCount').textContent = visible.length ? visible.length+' saved' : '';
+    let visible = illustrations.filter(i=>!i.deleted);
+    const totalCount = visible.length;
+    const q = illustSearchQuery.trim().toLowerCase();
+    if(q) visible = visible.filter(i=>illustMatchesQuery(i, q));
+    document.getElementById('illustCount').textContent = totalCount ? visible.length+' saved' : '';
     if(visible.length===0){
-      list.innerHTML = `<div id="emptyLibrary">No illustrations saved yet.<br>Tap the + button to build your personal library of stories, quotes, and examples.</div>`;
+      list.innerHTML = q
+        ? `<div id="emptyLibrary">No illustrations match. Try a different search.</div>`
+        : `<div id="emptyLibrary">No illustrations saved yet.<br>Tap the + button to build your personal library of stories, quotes, and examples.</div>`;
       return;
     }
     list.innerHTML = '';
@@ -1963,6 +2007,10 @@
     illustModal.classList.add('open');
   }
   document.getElementById('fabAdd').addEventListener('click', ()=> openIllustModal(null));
+  document.getElementById('illustSearchInput').addEventListener('input', e=>{
+    illustSearchQuery = e.target.value;
+    renderIllustrations();
+  });
   document.getElementById('closeIllustModal').addEventListener('click', ()=> illustModal.classList.remove('open'));
   document.getElementById('illustSaveBtn').addEventListener('click', ()=>{
     const title = document.getElementById('illustTitleInput').value.trim();
