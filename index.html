@@ -610,6 +610,17 @@
   .practice-take-info .ptr-dur{ font-size:12px; color:var(--muted); }
   .practice-take-row audio{ max-width:100%; height:32px; }
   .practice-empty-takes{ color:var(--muted); font-size:14px; text-align:center; padding:24px 0; }
+  /* Tap-to-annotate affordance, scoped to Practice's own stage container so Present's identical
+     .line markup is never affected -- only Practice ever adds the cursor/active feedback or the
+     has-note class in the first place. */
+  .practice-section-content .line{ cursor:pointer; border-radius:6px; transition:background .12s ease; }
+  .practice-section-content .line:active{ background:var(--panel-2); }
+  .line.has-note::before{ content:''; display:inline-block; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--gold); vertical-align:middle; }
+  .practice-note-excerpt{ font-size:13px; color:var(--muted); font-style:italic; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+  .practice-note-input{
+    width:100%; box-sizing:border-box; background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
+    padding:10px 12px; font-size:15px; font-family:inherit; color:var(--text); resize:vertical;
+  }
 
   @media (max-width:480px){
     .practice-top{ gap:6px; padding:8px 10px; }
@@ -836,6 +847,7 @@
       </div>
       <div class="practice-sermon-info" id="practiceSermonInfo"></div>
       <div class="top-actions">
+        <button class="btn icon" id="practiceNotesBtn" title="Practice notes for this sermon">Notes</button>
         <button class="btn icon" id="practiceTakesBtn" title="Past takes for this sermon">Takes</button>
         <button class="btn gold" id="practiceFinishBtn" title="Stop recording and save this take">Finish</button>
         <button class="icon-btn dark-toggle" id="darkModeBtnPractice" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:16px;width:16px;display:block;" alt=""></button>
@@ -862,6 +874,31 @@
     <div class="modal-sheet">
       <div class="modal-sheet-header"><h2>Past Takes</h2><button class="btn icon" id="closePracticeTakesModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
       <div class="scroll" id="practiceTakesList"></div>
+    </div>
+  </div>
+
+  <!-- Tapping an item in Practice's stage opens this -- a quick single-field form, so it stays a
+       bottom sheet (not drawer-right) same as the sermon-info/illustration-add popups. -->
+  <div class="modal-overlay" id="practiceNoteModal">
+    <div class="modal-sheet">
+      <div class="modal-sheet-header"><h2>Practice Note</h2><button class="btn icon" id="closePracticeNoteModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+      <div class="scroll" style="padding:0 18px 18px;">
+        <div id="practiceNoteExcerpt" class="practice-note-excerpt"></div>
+        <textarea id="practiceNoteInput" class="practice-note-input" rows="4" placeholder="What needs to change here?"></textarea>
+        <div style="display:flex; gap:8px; margin-top:14px;">
+          <button class="btn icon danger" id="practiceNoteDeleteBtn" style="display:none;">Delete</button>
+          <button class="btn gold" id="practiceNoteSaveBtn" style="flex:1;">Save Note</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All notes for the sermon currently open in Practice -- same "settle in and review" reasoning
+       as Past Takes. -->
+  <div class="modal-overlay drawer-right" id="practiceNotesModal">
+    <div class="modal-sheet">
+      <div class="modal-sheet-header"><h2>Practice Notes</h2><button class="btn icon" id="closePracticeNotesModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+      <div class="scroll" id="practiceNotesList"></div>
     </div>
   </div>
 
@@ -3266,10 +3303,14 @@
       // child appears, which silently ejects that content from the .line wrapper -- it stops
       // inheriting --body-size entirely and falls back to the browser's tiny default list
       // styling. That's what was actually causing bullets to render smaller than block text.
-      if(it.type==='quiet') html += `<div class="line quiet">${rich}</div>`;
-      else if(it.type==='scripture') html += `<div class="line scripture">${rich}</div>`;
-      else if(it.type==='illustration') html += `<div class="line illustration">${it.imageData ? `<img class="present-illust-img" src="${escapeAttr(it.imageData)}" alt="">` : ''}${rich}</div>`;
-      else html += `<div class="line">${rich}</div>`;
+      // data-item-id is inert for Present (nothing reads it there) -- only Practice's own click
+      // delegation and has-note post-processing key off it, so Present's output/behavior is
+      // unaffected either way.
+      const idAttr = ` data-item-id="${escapeAttr(it.id)}"`;
+      if(it.type==='quiet') html += `<div class="line quiet"${idAttr}>${rich}</div>`;
+      else if(it.type==='scripture') html += `<div class="line scripture"${idAttr}>${rich}</div>`;
+      else if(it.type==='illustration') html += `<div class="line illustration"${idAttr}>${it.imageData ? `<img class="present-illust-img" src="${escapeAttr(it.imageData)}" alt="">` : ''}${rich}</div>`;
+      else html += `<div class="line"${idAttr}>${rich}</div>`;
     });
     return html;
   }
@@ -3608,6 +3649,11 @@
     html += `<div class="practice-section-title">${escapeHtml(s.title)}</div>`;
     html += buildStageItemsHtml(s.items);
     stageEl.innerHTML = html;
+    // Practice-only visual treatment applied after the fact, on Practice's own DOM subtree --
+    // buildStageItemsHtml itself stays note-unaware so Present's identical markup never changes.
+    stageEl.querySelectorAll('.line[data-item-id]').forEach(el=>{
+      el.classList.toggle('has-note', !!noteForItem(practiceSermonId, el.dataset.itemId));
+    });
     stageEl.scrollTop = 0;
     navCounter.textContent = `${practiceCurrent+1} / ${practiceSections.length}`;
     prevBtn.disabled = practiceCurrent===0;
@@ -3720,6 +3766,124 @@
   });
   document.getElementById('closePracticeTakesModal').addEventListener('click', ()=> practiceTakesModal.classList.remove('open'));
   practiceTakesModal.addEventListener('click', e=>{ if(e.target === practiceTakesModal) practiceTakesModal.classList.remove('open'); });
+
+  /* ---- practice notes: tap an item on the stage to flag it and jot what needs to change.
+     Text-only (excerpt + note), so unlike audio takes these are small enough for localStorage
+     and don't need a retention cap. Kept device-local like takes -- not wired into the sync
+     engine, since these are rehearsal-review scratch notes, not sermon content. ---- */
+  const PRACTICE_NOTES_KEY = 'shema_practice_notes_v1';
+  let practiceNotes = loadJSON(PRACTICE_NOTES_KEY, []);
+  function persistPracticeNotes(){ saveJSON(PRACTICE_NOTES_KEY, practiceNotes); }
+  function notesForSermon(sermonId){ return practiceNotes.filter(n => n.sermonId === sermonId); }
+  function noteForItem(sermonId, itemId){ return practiceNotes.find(n => n.sermonId===sermonId && n.itemId===itemId); }
+
+  const practiceNoteModal = document.getElementById('practiceNoteModal');
+  let practiceNoteEditingItemId = null, practiceNoteEditingSectionId = null;
+  // Set only when opening the note popup itself pauses a running session, so closing it knows
+  // whether to resume automatically or leave things as the user already had them (e.g. if they
+  // had manually paused before tapping an item, closing the note shouldn't un-pause for them).
+  let practiceAutoPausedForNote = false;
+
+  function openPracticeNoteModal(item, section){
+    practiceNoteEditingItemId = item.id;
+    practiceNoteEditingSectionId = section.id;
+    const existing = noteForItem(practiceSermonId, item.id);
+    document.getElementById('practiceNoteExcerpt').textContent = htmlToPlainText(item.text).slice(0, 140) || '(no text)';
+    document.getElementById('practiceNoteInput').value = existing ? existing.note : '';
+    document.getElementById('practiceNoteDeleteBtn').style.display = existing ? '' : 'none';
+    if(practiceRunning){
+      practiceAutoPausedForNote = true;
+      practiceRunning = false;
+      clearInterval(practiceIntervalId);
+      pausePracticeRecording();
+      updatePracticeTimerDisplay();
+    }
+    practiceNoteModal.classList.add('open');
+    document.getElementById('practiceNoteInput').focus();
+  }
+  function closePracticeNoteModal(){
+    practiceNoteModal.classList.remove('open');
+    if(practiceAutoPausedForNote){
+      practiceAutoPausedForNote = false;
+      resumePracticeRecording();
+      practiceRunning = true;
+      practiceIntervalId = setInterval(()=>{ practiceElapsed++; updatePracticeTimerDisplay(); }, 1000);
+      updatePracticeTimerDisplay();
+    }
+  }
+  document.getElementById('practiceSectionContent').addEventListener('click', e=>{
+    const line = e.target.closest('.line[data-item-id]');
+    if(!line) return;
+    const sec = practiceSections[practiceCurrent];
+    const item = sec && sec.items.find(i=>i.id===line.dataset.itemId);
+    if(item) openPracticeNoteModal(item, sec);
+  });
+  document.getElementById('closePracticeNoteModal').addEventListener('click', closePracticeNoteModal);
+  practiceNoteModal.addEventListener('click', e=>{ if(e.target === practiceNoteModal) closePracticeNoteModal(); });
+  document.getElementById('practiceNoteSaveBtn').addEventListener('click', ()=>{
+    const text = document.getElementById('practiceNoteInput').value.trim();
+    const existing = noteForItem(practiceSermonId, practiceNoteEditingItemId);
+    if(!text){
+      practiceNotes = practiceNotes.filter(n => n !== existing);
+    } else if(existing){
+      existing.note = text; existing.updatedAt = Date.now();
+    } else {
+      const sec = practiceSections.find(s=>s.id===practiceNoteEditingSectionId);
+      const item = sec && sec.items.find(i=>i.id===practiceNoteEditingItemId);
+      practiceNotes.push({
+        id: uid(), sermonId: practiceSermonId, sectionId: practiceNoteEditingSectionId, itemId: practiceNoteEditingItemId,
+        excerpt: item ? htmlToPlainText(item.text).slice(0,140) : '',
+        note: text, createdAt: Date.now(), updatedAt: Date.now()
+      });
+    }
+    persistPracticeNotes();
+    closePracticeNoteModal();
+    renderPracticeStage();
+  });
+  document.getElementById('practiceNoteDeleteBtn').addEventListener('click', ()=>{
+    practiceNotes = practiceNotes.filter(n => !(n.sermonId===practiceSermonId && n.itemId===practiceNoteEditingItemId));
+    persistPracticeNotes();
+    closePracticeNoteModal();
+    renderPracticeStage();
+  });
+
+  /* ---- notes list (review all notes for the sermon, jump to one) ---- */
+  const practiceNotesModal = document.getElementById('practiceNotesModal');
+  function renderPracticeNotesList(){
+    const list = document.getElementById('practiceNotesList');
+    const notes = notesForSermon(practiceSermonId).sort((a,b)=>b.updatedAt-a.updatedAt);
+    if(!notes.length){ list.innerHTML = `<div class="practice-empty-takes">No practice notes yet for this sermon.</div>`; return; }
+    list.innerHTML = '';
+    notes.forEach(n=>{
+      const row = document.createElement('div');
+      row.className = 'practice-take-row';
+      row.innerHTML = `
+        <div class="practice-take-info">
+          <div class="ptr-when">${escapeHtml(n.excerpt || 'Note')}</div>
+          <div class="ptr-dur">${escapeHtml(n.note)}</div>
+        </div>
+        <button class="btn icon" data-act="jump" title="Jump to this section">Go</button>
+        <button class="btn icon danger" data-act="delete-note" title="Delete this note">Delete</button>`;
+      row.querySelector('[data-act="jump"]').addEventListener('click', ()=>{
+        const idx = practiceSections.findIndex(s=>s.id===n.sectionId);
+        if(idx>=0){ practiceCurrent = idx; renderPracticeStage(); }
+        practiceNotesModal.classList.remove('open');
+      });
+      row.querySelector('[data-act="delete-note"]').addEventListener('click', ()=>{
+        practiceNotes = practiceNotes.filter(x=>x.id!==n.id);
+        persistPracticeNotes();
+        renderPracticeNotesList();
+        renderPracticeStage();
+      });
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('practiceNotesBtn').addEventListener('click', ()=>{
+    renderPracticeNotesList();
+    practiceNotesModal.classList.add('open');
+  });
+  document.getElementById('closePracticeNotesModal').addEventListener('click', ()=> practiceNotesModal.classList.remove('open'));
+  practiceNotesModal.addEventListener('click', e=>{ if(e.target === practiceNotesModal) practiceNotesModal.classList.remove('open'); });
 
   updatePracticeTimerDisplay();
   renderPracticeStage();
