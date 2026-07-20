@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shema-cache-v59';
+const CACHE_NAME = 'shema-cache-v60';
 const ASSETS = [
   './',
   './index.html',
