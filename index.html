@@ -104,8 +104,12 @@
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:background .15s ease, color .15s ease;
   }
   #brandbar.editor-active #editorTitleDisplay:active{ background:var(--panel-2); color:var(--text); }
-  #brandbar.editor-active #toolbarToggleBtn{ display:flex; margin-left:auto; }
+  #brandbar.editor-active #toolbarToggleBtn{ display:flex; }
   #toolbarToggleBtn.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); }
+  /* editorTitleDisplay's flex:1 already pushes everything after it to the right edge in the
+     editor; outside the editor, settingsBtn is the only thing left of the gap, so it needs its
+     own auto margin to reach the same right-aligned position. */
+  #settingsBtn{ margin-left:auto; }
   #darkModeBtn{ margin-left:8px; }
   #brandbar:not(.editor-active) #darkModeBtn{ margin-left:auto; }
   .dark-toggle, .btn.icon.dark-toggle, .icon-btn.dark-toggle{
@@ -198,6 +202,25 @@
   .modal-sheet-header{ display:flex; justify-content:space-between; align-items:center; padding:16px 18px 10px; }
   .modal-sheet-header h2{ font-family:'Playfair Display',serif; font-size:19px; margin:0; color:var(--heading); }
   .modal-sheet .scroll{ padding:0 18px 18px; }
+
+  /* Right-side drawer variant: used for Settings/Account instead of a bottom sheet, since
+     those are less "quick action, dismiss" and more "a place you sit for a bit" -- kept as an
+     additive modifier rather than changed on .modal-overlay/.modal-sheet directly so every
+     other bottom-sheet modal in the app is untouched. Stays display:flex at rest (instead of
+     the base display:none) so background/transform can transition; pointer-events keeps the
+     closed, invisible drawer from swallowing clicks on the page behind it. */
+  .modal-overlay.drawer-right{
+    display:flex; justify-content:flex-end; align-items:stretch;
+    background:rgba(10,12,15,0); pointer-events:none; transition:background .25s ease;
+  }
+  .modal-overlay.drawer-right.open{ background:rgba(10,12,15,.6); pointer-events:auto; }
+  .modal-overlay.drawer-right .modal-sheet{
+    width:min(400px,92vw); max-width:400px; height:100%; max-height:none;
+    border-radius:0; box-shadow:-8px 0 28px rgba(0,0,0,.28);
+    transform:translateX(100%); transition:transform .25s ease;
+    padding-top:env(safe-area-inset-top);
+  }
+  .modal-overlay.drawer-right.open .modal-sheet{ transform:translateX(0); }
   .tpl-card{
     background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px;
   }
@@ -861,7 +884,7 @@
 </div>
 
 <!-- Settings: app-wide actions that don't belong cluttering a specific view. -->
-<div class="modal-overlay" id="settingsModal">
+<div class="modal-overlay drawer-right" id="settingsModal">
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Settings</h2><button class="btn icon" id="closeSettingsModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll">
@@ -890,7 +913,7 @@
 
 <!-- Account: sign in (Google or email link) for cross-device sync -- signing in is optional,
      the local-only path stays fully functional forever (see context.md business model). -->
-<div class="modal-overlay" id="accountModal">
+<div class="modal-overlay drawer-right" id="accountModal">
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Account</h2><button class="btn icon" id="closeAccountModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll">
@@ -3401,6 +3424,8 @@
     refreshAccountState();
   });
   document.getElementById('closeAccountModal').addEventListener('click', ()=> accountModal.classList.remove('open'));
+  settingsModal.addEventListener('click', e=>{ if(e.target === settingsModal) settingsModal.classList.remove('open'); });
+  accountModal.addEventListener('click', e=>{ if(e.target === accountModal) accountModal.classList.remove('open'); });
 
   async function refreshAccountState(){
     const signedOutEl = document.getElementById('accountSignedOut');
