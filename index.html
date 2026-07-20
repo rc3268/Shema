@@ -1106,7 +1106,7 @@
   let illustrations = loadJSON(STORE_KEY_ILLUST, []);
   let historyLog = loadJSON(STORE_KEY_HISTORY, []); // [{id, sermonId, snapshot:{title,series,date,sections}, timestamp}]
   function persistSermons(){ saveJSON(STORE_KEY_SERMONS, sermons); scheduleSync(); }
-  function persistIllust(){ saveJSON(STORE_KEY_ILLUST, illustrations); }
+  function persistIllust(){ saveJSON(STORE_KEY_ILLUST, illustrations); scheduleSync(); }
   function persistHistory(){ saveJSON(STORE_KEY_HISTORY, historyLog); }
 
   // Deletes are tombstones, not row removal: a future sync pass needs to be able to tell
@@ -1203,7 +1203,7 @@
     localStorage.setItem(TEMPLATES_KEY, JSON.stringify(seeded));
     return seeded;
   }
-  function persistTemplates(){ return saveJSON(TEMPLATES_KEY, templates); }
+  function persistTemplates(){ const ok = saveJSON(TEMPLATES_KEY, templates); scheduleSync(); return ok; }
 
   function newSermonFromTemplate(tpl, presetDate){
     return {
@@ -1576,7 +1576,7 @@
   function renderTemplateList(){
     const list = document.getElementById('templateList');
     list.innerHTML = '';
-    templates.forEach(t=>{
+    templates.filter(t=>!t.deleted).forEach(t=>{
       const c = document.createElement('div');
       c.className = 'tpl-card';
       c.innerHTML = `
@@ -1595,7 +1595,11 @@
         e.stopPropagation();
         const ok = await showConfirm({ title:'Delete template?', message:`Delete "${t.name}"? Sermons already created from it are unaffected.`, confirmLabel:'Delete' });
         if(!ok) return;
-        templates = templates.filter(x=>x.id!==t.id);
+        // Tombstone, not array removal -- same reasoning as sermon/illustration deletes (see
+        // deleteSermon): a sync pass needs to be able to tell "this was deleted" apart from
+        // "this device just hasn't created it yet."
+        t.deleted = true;
+        t.updatedAt = Date.now();
         persistTemplates();
         renderTemplateList();
       });
@@ -1612,9 +1616,10 @@
     restore.addEventListener('click', async ()=>{
       const ok = await showConfirm({ title:'Restore built-in templates?', message:'This adds back any built-in templates you\'ve deleted or edited, without touching templates you created yourself.', confirmLabel:'Restore', danger:false });
       if(!ok) return;
-      const existingIds = new Set(templates.map(t=>t.id));
       DEFAULT_TEMPLATES.forEach(dt=>{
-        if(!existingIds.has(dt.id)) templates.push({...dt, sections:[...dt.sections], updatedAt: Date.now()});
+        const existing = templates.find(t=>t.id===dt.id);
+        if(!existing){ templates.push({...dt, sections:[...dt.sections], updatedAt: Date.now()}); }
+        else if(existing.deleted){ Object.assign(existing, {...dt, sections:[...dt.sections], deleted:false, updatedAt: Date.now()}); }
       });
       persistTemplates();
       renderTemplateList();
@@ -2784,7 +2789,7 @@
         ${ill.imageData ? `<img class="illust-thumb" src="${escapeAttr(ill.imageData)}" alt="">` : ''}
         <p class="ititle">${escapeHtml(ill.title||'Untitled')}</p>
         <p class="ibody">${escapeHtml(ill.body)}</p>
-        <div class="itags">${(ill.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
+        <div class="itags">${ill.conflictOf?`<span class="tag conflict-tag" title="Created when this illustration was edited on two devices before they synced">Synced copy</span>`:''}${(ill.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
         ${usageBadgeHtml(ill)}
         <div class="iactions">
           <button class="btn icon" data-act="edit">Edit</button>
@@ -3391,11 +3396,34 @@
   function syncedAt(table, id){ return (syncMeta[table] && syncMeta[table][id]) || 0; }
   function markSynced(table, id, ts){ if(!syncMeta[table]) syncMeta[table] = {}; syncMeta[table][id] = ts; }
 
+  // Illustration images ride along as a separate Storage object, not a column -- a base64 image
+  // in a jsonb/text column would blow through Supabase's free-tier row/storage limits fast (see
+  // context.md). The local `imageData` (base64) is the offline-first source of truth and is
+  // never cleared by a pull; `imagePath` is just a cache hint for which Storage object this
+  // device has already uploaded/downloaded, so unrelated pushes don't re-upload the same bytes.
+  async function illustBeforePush(ill, userId){
+    if(!ill.imageData) return;
+    try{
+      const blob = await (await fetch(ill.imageData)).blob();
+      const path = `${userId}/${ill.id}.jpg`;
+      const { error } = await sb.storage.from('illustration-images').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+      if(!error) ill.imagePath = path;
+    } catch(e){}
+  }
+  async function illustAfterPull(local, r){
+    if(!r.image_path || (local.imageData && local.imagePath === r.image_path)) return;
+    try{
+      const { data, error } = await sb.storage.from('illustration-images').download(r.image_path);
+      if(!error && data){ local.imageData = await blobToDataUrl(data); local.imagePath = r.image_path; }
+    } catch(e){}
+  }
+
   const SYNC_TABLES = {
     sermons: {
       table: 'sermons',
       list: () => sermons,
       persist: () => saveJSON(STORE_KEY_SERMONS, sermons),
+      render: renderLibrary,
       toRemote: (s, userId) => ({
         id: s.id, user_id: userId, title: s.title||'', series: s.series||'', date: s.date||'',
         sections: s.sections||[], schema_version: s.schemaVersion||1, device_id: deviceId,
@@ -3405,6 +3433,38 @@
         id: r.id, title: r.title||'', series: r.series||'', date: r.date||'',
         sections: r.sections||[], schemaVersion: r.schema_version||1,
         deleted: !!r.deleted, conflictOf: r.conflict_of||undefined, updatedAt: r.updated_at||0
+      })
+    },
+    illustrations: {
+      table: 'illustrations',
+      list: () => illustrations,
+      persist: () => saveJSON(STORE_KEY_ILLUST, illustrations),
+      render: renderIllustrations,
+      toRemote: (ill, userId) => ({
+        id: ill.id, user_id: userId, title: ill.title||'', body: ill.body||'', tags: ill.tags||[],
+        image_path: ill.imagePath || null, schema_version: ill.schemaVersion||1, device_id: deviceId,
+        deleted: !!ill.deleted, conflict_of: ill.conflictOf || null, updated_at: ill.updatedAt||0
+      }),
+      fromRemote: (r) => normalizeIllustration({
+        id: r.id, title: r.title||'', body: r.body||'', tags: r.tags||[],
+        imagePath: r.image_path||undefined, schemaVersion: r.schema_version||1,
+        deleted: !!r.deleted, conflictOf: r.conflict_of||undefined, updatedAt: r.updated_at||0
+      }),
+      beforePush: illustBeforePush,
+      afterPull: illustAfterPull
+    },
+    templates: {
+      table: 'templates',
+      list: () => templates,
+      persist: () => saveJSON(TEMPLATES_KEY, templates),
+      render: renderTemplateList,
+      toRemote: (t, userId) => ({
+        id: t.id, user_id: userId, name: t.name||'', desc: t.desc||'', sections: t.sections||[],
+        deleted: !!t.deleted, updated_at: t.updatedAt||0
+      }),
+      fromRemote: (r) => ({
+        id: r.id, name: r.name||'', desc: r.desc||'', sections: r.sections||[],
+        deleted: !!r.deleted, updatedAt: r.updated_at||0
       })
     }
   };
@@ -3444,41 +3504,44 @@
     let changed = false;
     const localList = cfg.list();
     const localById = new Map(localList.map(r=>[r.id, r]));
-    (remoteRows||[]).forEach(r=>{
-      const local = localById.get(r.id);
+    for(const r of (remoteRows||[])){
+      let local = localById.get(r.id);
       const lastSynced = syncedAt(cfg.table, r.id);
       if(!local){
-        localList.push(cfg.fromRemote(r));
+        local = cfg.fromRemote(r);
+        localList.push(local);
         markSynced(cfg.table, r.id, r.updated_at||0);
         changed = true;
-        return;
+      } else {
+        const localChanged = (local.updatedAt||0) > lastSynced;
+        const remoteChanged = (r.updated_at||0) > lastSynced;
+        if(remoteChanged && localChanged){
+          const loserCopy = JSON.parse(JSON.stringify(local));
+          loserCopy.id = uid();
+          loserCopy.conflictOf = r.id;
+          loserCopy.title = (loserCopy.title || 'Untitled') + ' (synced copy)';
+          loserCopy.updatedAt = Date.now();
+          localList.push(loserCopy);
+          Object.assign(local, cfg.fromRemote(r));
+          markSynced(cfg.table, r.id, r.updated_at||0);
+          changed = true;
+        } else if(remoteChanged && !localChanged){
+          Object.assign(local, cfg.fromRemote(r));
+          markSynced(cfg.table, r.id, r.updated_at||0);
+          changed = true;
+        }
+        // else: remote unchanged here since the last sync -- if local is newer, the push loop
+        // below will catch it; nothing to reconcile in this pull pass.
       }
-      const localChanged = (local.updatedAt||0) > lastSynced;
-      const remoteChanged = (r.updated_at||0) > lastSynced;
-      if(remoteChanged && localChanged){
-        const loserCopy = JSON.parse(JSON.stringify(local));
-        loserCopy.id = uid();
-        loserCopy.conflictOf = r.id;
-        loserCopy.title = (loserCopy.title || 'Untitled') + ' (synced copy)';
-        loserCopy.updatedAt = Date.now();
-        localList.push(loserCopy);
-        Object.assign(local, cfg.fromRemote(r));
-        markSynced(cfg.table, r.id, r.updated_at||0);
-        changed = true;
-      } else if(remoteChanged && !localChanged){
-        Object.assign(local, cfg.fromRemote(r));
-        markSynced(cfg.table, r.id, r.updated_at||0);
-        changed = true;
-      }
-      // else: remote unchanged here since the last sync -- if local is newer, the push loop
-      // below will catch it; nothing to reconcile in this pull pass.
-    });
+      if(cfg.afterPull) await cfg.afterPull(local, r);
+    }
     const toPush = localList.filter(r => (r.updatedAt||0) > syncedAt(cfg.table, r.id));
     for(const r of toPush){
+      if(cfg.beforePush) await cfg.beforePush(r, userId);
       const { error: upErr } = await sb.from(cfg.table).upsert(cfg.toRemote(r, userId));
       if(!upErr) markSynced(cfg.table, r.id, r.updatedAt||0);
     }
-    if(changed){ cfg.persist(); renderLibrary(); }
+    if(changed){ cfg.persist(); cfg.render(); }
     persistSyncMeta();
   }
 
