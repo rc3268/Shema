@@ -224,6 +224,27 @@
     padding:10px 12px; font-size:14px; margin-bottom:10px; font-family:inherit; box-sizing:border-box;
   }
   #accountModal label{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:4px; }
+  .account-section{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:4px 14px; margin-bottom:16px;
+  }
+  .account-row{
+    display:flex; align-items:center; justify-content:space-between; padding:10px 0; font-size:13px; color:var(--muted);
+  }
+  .account-row:not(:last-child){ border-bottom:1px solid var(--line); }
+  .account-row strong{ color:var(--text); font-weight:700; }
+  .btn:disabled{ opacity:0.45; cursor:not-allowed; }
+
+  /* Settings modal */
+  .settings-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 4px;
+    border-bottom:1px solid var(--line); cursor:pointer;
+  }
+  .settings-row:last-child{ border-bottom:none; }
+  .settings-row:active{ background:var(--panel-2); }
+  .settings-row-label{ display:flex; flex-direction:column; gap:2px; }
+  .settings-row-label span:first-child{ font-size:15px; font-weight:600; color:var(--text); }
+  .settings-row-sub{ font-size:12px; color:var(--muted); }
+  .settings-row-chev{ color:var(--muted); font-size:18px; }
 
   /* form modal (template create/edit) */
   #tplForm input{
@@ -587,13 +608,12 @@
     <span class="brand-word">shema</span>
     <button id="editorTitleDisplay" title="Edit sermon details"></button>
     <button class="btn icon" id="toolbarToggleBtn" title="Toggle formatting toolbar"><img class="mono-ic" src="icons/toolbar-toggle.png" data-light="icons/toolbar-toggle.png" data-dark="icons/toolbar-toggle-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
-    <button class="btn icon" id="accountBtn" title="Account">
+    <button class="btn icon" id="settingsBtn" title="Settings">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
-        <circle cx="12" cy="8" r="4"></circle>
-        <path d="M4 20c0-4 4-6 8-6s8 2 8 6"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
       </svg>
     </button>
-    <button class="btn icon dark-toggle" id="darkModeBtn" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:18px;width:18px;display:block;" alt=""></button>
   </div>
 
   <!-- ===== LIBRARY ===== -->
@@ -601,8 +621,6 @@
     <div class="view-header">
       <h1>Your Sermons</h1>
       <div style="display:flex; gap:8px;">
-        <button class="btn icon" id="backupExportBtn" title="Download a backup of everything"><img class="mono-ic" src="icons/backupexportbtn.png" data-light="icons/backupexportbtn.png" data-dark="icons/backupexportbtn-dark.png" style="height:15px;width:15px;display:block;margin-right:6px;" alt="">Backup</button>
-        <button class="btn icon" id="backupImportBtn" title="Restore from a backup file"><img class="mono-ic" src="icons/backupimportbtn.png" data-light="icons/backupimportbtn.png" data-dark="icons/backupimportbtn-dark.png" style="height:15px;width:15px;display:block;margin-right:6px;" alt="">Restore</button>
         <button class="btn gold" id="newSermonBtn">+ New</button>
       </div>
     </div>
@@ -839,6 +857,34 @@
   </div>
 </div>
 
+<!-- Settings: app-wide actions that don't belong cluttering a specific view. -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-header"><h2>Settings</h2><button class="btn icon" id="closeSettingsModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="scroll">
+      <div class="settings-row" id="settingsAccountRow">
+        <div class="settings-row-label">
+          <span>Account</span>
+          <span class="settings-row-sub" id="settingsAccountSub">Not signed in</span>
+        </div>
+        <span class="settings-row-chev">›</span>
+      </div>
+      <div class="settings-row" id="settingsBackupRow">
+        <div class="settings-row-label"><span>Backup</span><span class="settings-row-sub">Download everything as a file</span></div>
+        <span class="settings-row-chev">›</span>
+      </div>
+      <div class="settings-row" id="settingsRestoreRow">
+        <div class="settings-row-label"><span>Restore from Backup</span><span class="settings-row-sub" id="settingsBackupStatusSub"></span></div>
+        <span class="settings-row-chev">›</span>
+      </div>
+      <div class="settings-row" id="settingsDarkModeRow">
+        <div class="settings-row-label"><span>Dark Mode</span></div>
+        <button class="btn icon dark-toggle" id="darkModeBtn" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:16px;width:16px;display:block;" alt=""></button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Account: sign in (Google or email link) for cross-device sync -- signing in is optional,
      the local-only path stays fully functional forever (see context.md business model). -->
 <div class="modal-overlay" id="accountModal">
@@ -858,10 +904,26 @@
         <p id="accountEmailStatus" style="font-size:12px; color:var(--gold-dim); margin:10px 0 0; display:none;"></p>
       </div>
       <div id="accountSignedIn" style="display:none;">
-        <p style="font-size:14px; margin:0 0 4px;">Signed in as</p>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+          <span>Signed in as</span>
+          <span class="tag" id="accountTypeBadge"></span>
+        </div>
         <p id="accountEmailDisplay" style="font-weight:700; margin:0 0 18px;"></p>
-        <div id="accountEntitlements" style="font-size:13px; color:var(--muted); line-height:1.8; margin-bottom:18px;"></div>
-        <button class="btn" id="accountSignOutBtn" style="width:100%;">Sign Out</button>
+
+        <div class="account-section">
+          <div class="account-row"><span>Full unlock</span><strong id="acctOwnsApp"></strong></div>
+          <div class="account-row"><span>Cross-device sync</span><strong id="acctSyncActive"></strong></div>
+        </div>
+
+        <div class="account-section" id="acctBillingSection" style="display:none;">
+          <div class="account-row"><span>Next billing date</span><strong>—</strong></div>
+          <div class="account-row"><span>Amount</span><strong>—</strong></div>
+        </div>
+
+        <button class="btn" id="acctManageSubBtn" style="width:100%; margin-bottom:10px;">Manage Subscription</button>
+        <button class="btn" id="acctRestorePurchasesBtn" style="width:100%; margin-bottom:10px;">Restore Purchases</button>
+        <button class="btn" id="accountSignOutBtn" style="width:100%; margin-bottom:10px;">Sign Out</button>
+        <button class="btn danger" id="acctDeleteBtn" style="width:100%;">Delete Account</button>
       </div>
     </div>
   </div>
@@ -1211,18 +1273,20 @@
 
   function renderBackupStatus(){
     const el = document.getElementById('backupStatus');
-    if(!el) return;
+    const settingsSub = document.getElementById('settingsBackupStatusSub');
     let last = null;
     try { last = parseInt(localStorage.getItem('shema_last_backup'), 10) || null; } catch(e){}
+    let text, stale;
     if(!last){
       const hasSermons = sermons.some(s=>!s.deleted);
-      el.textContent = hasSermons ? 'Never backed up' : '';
-      el.classList.toggle('stale', hasSermons);
-      return;
+      text = hasSermons ? 'Never backed up' : '';
+      stale = hasSermons;
+    } else {
+      stale = (Date.now() - last) > (14 * 86400000); // 14+ days
+      text = 'Last backup: ' + timeAgo(last);
     }
-    const stale = (Date.now() - last) > (14 * 86400000); // 14+ days
-    el.textContent = 'Last backup: ' + timeAgo(last);
-    el.classList.toggle('stale', stale);
+    if(el){ el.textContent = text; el.classList.toggle('stale', stale); }
+    if(settingsSub) settingsSub.textContent = text;
   }
 
   document.getElementById('librarySearchInput').addEventListener('input', e=>{
@@ -1412,7 +1476,7 @@
   });
 
   /* ---- Backup: Export / Import everything as a single JSON file ---- */
-  document.getElementById('backupExportBtn').addEventListener('click', ()=>{
+  document.getElementById('settingsBackupRow').addEventListener('click', ()=>{
     const payload = {
       app: 'shema',
       version: 1,
@@ -1438,7 +1502,7 @@
     renderBackupStatus();
   });
 
-  document.getElementById('backupImportBtn').addEventListener('click', ()=>{
+  document.getElementById('settingsRestoreRow').addEventListener('click', ()=>{
     document.getElementById('backupFileInput').click();
   });
 
@@ -3204,24 +3268,50 @@
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 
+  // Purely a display label -- the app has no real dev-only powers gated behind this yet, so
+  // there's nothing to actually secure. Anyone else signed in just never sees "Dev" anywhere,
+  // since this only ever matches this one address.
+  const DEV_EMAIL = 'shema.dev3268@gmail.com';
+  function computeAccountType(session, profile){
+    if(!session || !session.user) return 'local';
+    if(session.user.email === DEV_EMAIL) return 'dev';
+    if(profile && profile.sync_subscription_active) return 'sync';
+    // Nobody can actually purchase sync yet (that's Phase 4), so every other signed-in person
+    // is, today, definitionally a pre-launch tester rather than a paying customer.
+    return 'tester';
+  }
+
+  const settingsModal = document.getElementById('settingsModal');
   const accountModal = document.getElementById('accountModal');
-  document.getElementById('accountBtn').addEventListener('click', ()=>{
+  document.getElementById('settingsBtn').addEventListener('click', ()=>{
+    settingsModal.classList.add('open');
+    refreshAccountState();
+    renderBackupStatus();
+  });
+  document.getElementById('closeSettingsModal').addEventListener('click', ()=> settingsModal.classList.remove('open'));
+  document.getElementById('settingsAccountRow').addEventListener('click', ()=>{
+    settingsModal.classList.remove('open');
     accountModal.classList.add('open');
-    renderAccountModal();
+    refreshAccountState();
   });
   document.getElementById('closeAccountModal').addEventListener('click', ()=> accountModal.classList.remove('open'));
 
-  async function renderAccountModal(){
+  async function refreshAccountState(){
     const signedOutEl = document.getElementById('accountSignedOut');
     const signedInEl = document.getElementById('accountSignedIn');
-    if(!sb){ signedOutEl.style.display = ''; signedInEl.style.display = 'none'; return; }
+    const settingsSub = document.getElementById('settingsAccountSub');
+    if(!sb){
+      signedOutEl.style.display = ''; signedInEl.style.display = 'none';
+      settingsSub.textContent = 'Not signed in';
+      return;
+    }
     const { data: { session } } = await sb.auth.getSession();
     if(!session || !session.user){
       signedOutEl.style.display = ''; signedInEl.style.display = 'none';
+      settingsSub.textContent = 'Not signed in';
       return;
     }
     signedOutEl.style.display = 'none'; signedInEl.style.display = '';
-    document.getElementById('accountEmailDisplay').textContent = session.user.email || session.user.id;
     // No profiles row yet (table not created, or trigger hasn't fired) reads as "not entitled"
     // rather than erroring -- entitlement flags are only ever written server-side anyway (see
     // the RLS policy), so a signed-in user with no row is just a user who hasn't purchased yet.
@@ -3229,8 +3319,13 @@
       .select('owns_app, sync_subscription_active').eq('id', session.user.id).maybeSingle();
     const ownsApp = profile ? profile.owns_app : false;
     const syncActive = profile ? profile.sync_subscription_active : false;
-    document.getElementById('accountEntitlements').innerHTML =
-      `Full unlock: <strong>${ownsApp ? 'Yes' : 'Not yet'}</strong><br>Cross-device sync: <strong>${syncActive ? 'Active' : 'Not active'}</strong>`;
+    const type = computeAccountType(session, profile);
+    document.getElementById('accountEmailDisplay').textContent = session.user.email || session.user.id;
+    document.getElementById('accountTypeBadge').textContent = type.toUpperCase();
+    document.getElementById('acctOwnsApp').textContent = ownsApp ? 'Yes' : 'Not yet';
+    document.getElementById('acctSyncActive').textContent = syncActive ? 'Active' : 'Not active';
+    document.getElementById('acctBillingSection').style.display = (type === 'sync') ? '' : 'none';
+    settingsSub.textContent = 'Signed in · ' + type.charAt(0).toUpperCase() + type.slice(1);
   }
 
   document.getElementById('accountGoogleBtn').addEventListener('click', async ()=>{
@@ -3259,15 +3354,30 @@
   document.getElementById('accountSignOutBtn').addEventListener('click', async ()=>{
     if(!sb) return;
     await sb.auth.signOut();
-    renderAccountModal();
+    refreshAccountState();
+  });
+
+  // Real subscription management needs Phase 4 (RevenueCat / StoreKit / Play Billing) -- these
+  // are visible now so the screen reads as complete, but they're honest placeholders, not
+  // broken buttons pretending to work.
+  document.getElementById('acctManageSubBtn').addEventListener('click', ()=>{
+    showToast('Subscription management needs the store billing integration (Phase 4) -- not wired up yet.');
+  });
+  document.getElementById('acctRestorePurchasesBtn').addEventListener('click', ()=>{
+    showToast('Restore Purchases needs the store billing integration (Phase 4) -- not wired up yet.');
+  });
+  document.getElementById('acctDeleteBtn').addEventListener('click', ()=>{
+    showToast("Account deletion isn't available yet -- it needs a backend function we haven't built.", {danger:true});
   });
 
   if(sb){
-    sb.auth.onAuthStateChange(()=>{ if(accountModal.classList.contains('open')) renderAccountModal(); });
+    sb.auth.onAuthStateChange(()=> refreshAccountState());
   }
 
   /* ============ INIT ============ */
   renderLibrary();
+  renderBackupStatus();
+  refreshAccountState();
 })();
 </script>
 </body>
