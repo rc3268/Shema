@@ -163,6 +163,7 @@
   .sermon-card .title{ font-family:'Playfair Display',serif; font-weight:600; font-size:17px; margin:0 0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .sermon-card .meta{ font-size:12px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
   .tag{ background:var(--gold-soft); color:var(--gold-dim); padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; font-family:'Playfair Display',serif; }
+  .tag.conflict-tag{ background:rgba(214,110,40,0.16); color:#b0561f; }
   .sermon-card .actions{ display:flex; gap:6px; flex-shrink:0; }
   #emptyLibrary{ text-align:center; color:var(--muted); padding:60px 30px; line-height:1.6; }
   #emptyLibrary button{ margin-top:14px; }
@@ -994,6 +995,11 @@
     return id;
   }
   const deviceId = getDeviceId();
+  // persistSermons() (called during startup normalization, far above where `sb` is declared)
+  // calls scheduleSync() -- this flag keeps that early call a safe no-op instead of touching
+  // `sb` while it's still in its temporal-dead-zone window. var, not let/const, so it's always
+  // readable (as false) even before this line's own position in the file is reached.
+  var syncEngineReady = false;
 
   /* ---- Toast + confirm dialog: replaces native alert()/confirm() ---- */
   function showToast(msg, opts={}){
@@ -1099,7 +1105,7 @@
   let sermons = loadJSON(STORE_KEY_SERMONS, []);
   let illustrations = loadJSON(STORE_KEY_ILLUST, []);
   let historyLog = loadJSON(STORE_KEY_HISTORY, []); // [{id, sermonId, snapshot:{title,series,date,sections}, timestamp}]
-  function persistSermons(){ saveJSON(STORE_KEY_SERMONS, sermons); }
+  function persistSermons(){ saveJSON(STORE_KEY_SERMONS, sermons); scheduleSync(); }
   function persistIllust(){ saveJSON(STORE_KEY_ILLUST, illustrations); }
   function persistHistory(){ saveJSON(STORE_KEY_HISTORY, historyLog); }
 
@@ -1328,7 +1334,7 @@
     card.innerHTML = `
       <div class="info">
         <p class="title">${escapeHtml(s.title || 'Untitled Sermon')}</p>
-        <div class="meta">${s.series?`<span class="tag">${escapeHtml(s.series)}</span>`:''}${dateStr?`<span>${dateStr}</span>`:''}<span>${s.sections.length} section${s.sections.length===1?'':'s'}</span></div>
+        <div class="meta">${s.conflictOf?`<span class="tag conflict-tag" title="Created when this sermon was edited on two devices before they synced">Synced copy</span>`:''}${s.series?`<span class="tag">${escapeHtml(s.series)}</span>`:''}${dateStr?`<span>${dateStr}</span>`:''}<span>${s.sections.length} section${s.sections.length===1?'':'s'}</span></div>
       </div>
       <div class="actions">
         <button class="btn icon" data-act="present" title="Present">Present</button>
@@ -3370,14 +3376,125 @@
     showToast("Account deletion isn't available yet -- it needs a backend function we haven't built.", {danger:true});
   });
 
+  /* ============ SYNC ENGINE (Phase 3) ============
+     Local storage stays authoritative always -- signing in never changes what's readable or
+     writable offline. This mirrors sermons to Supabase so a second signed-in device sees the
+     same library (illustrations/templates follow the same pattern in a later pass -- see
+     context.md). Runs for any signed-in user, not just `sync`-type accounts: nobody can actually
+     pay for sync yet (Phase 4), so gating this on entitlement would mean nothing syncs pre-launch.
+     Conflict handling: if the same record changed on two devices between syncs, the remote edit
+     becomes canonical under the original id, and the local edit is kept as a new record (tagged
+     "Synced copy") rather than silently discarded -- see context.md's Phase 3 design note. */
+  const SYNC_META_KEY = 'shema_sync_meta_v1';
+  let syncMeta = loadJSON(SYNC_META_KEY, {});
+  function persistSyncMeta(){ saveJSON(SYNC_META_KEY, syncMeta); }
+  function syncedAt(table, id){ return (syncMeta[table] && syncMeta[table][id]) || 0; }
+  function markSynced(table, id, ts){ if(!syncMeta[table]) syncMeta[table] = {}; syncMeta[table][id] = ts; }
+
+  const SYNC_TABLES = {
+    sermons: {
+      table: 'sermons',
+      list: () => sermons,
+      persist: () => saveJSON(STORE_KEY_SERMONS, sermons),
+      toRemote: (s, userId) => ({
+        id: s.id, user_id: userId, title: s.title||'', series: s.series||'', date: s.date||'',
+        sections: s.sections||[], schema_version: s.schemaVersion||1, device_id: deviceId,
+        deleted: !!s.deleted, conflict_of: s.conflictOf || null, updated_at: s.updatedAt||0
+      }),
+      fromRemote: (r) => normalizeSermon({
+        id: r.id, title: r.title||'', series: r.series||'', date: r.date||'',
+        sections: r.sections||[], schemaVersion: r.schema_version||1,
+        deleted: !!r.deleted, conflictOf: r.conflict_of||undefined, updatedAt: r.updated_at||0
+      })
+    }
+  };
+
+  let syncInFlight = false;
+  let syncQueued = false;
+  let syncTimer = null;
+  function scheduleSync(){
+    if(!syncEngineReady || !sb) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(runSync, 2500);
+  }
+
+  async function runSync(){
+    if(!sb || !navigator.onLine) return;
+    if(syncInFlight){ syncQueued = true; return; }
+    const { data: { session } } = await sb.auth.getSession();
+    if(!session || !session.user) return;
+    syncInFlight = true;
+    try{
+      for(const key of Object.keys(SYNC_TABLES)){
+        await syncOneTable(SYNC_TABLES[key], session.user.id);
+      }
+    } catch(e){
+      // Best-effort background reconciliation: a failed pass (offline mid-sync, a transient
+      // network error) just gets retried on the next scheduled or periodic pass. Local data is
+      // never at risk either way, since local storage is never overwritten by a failed sync.
+    } finally {
+      syncInFlight = false;
+      if(syncQueued){ syncQueued = false; scheduleSync(); }
+    }
+  }
+
+  async function syncOneTable(cfg, userId){
+    const { data: remoteRows, error } = await sb.from(cfg.table).select('*').eq('user_id', userId);
+    if(error) return;
+    let changed = false;
+    const localList = cfg.list();
+    const localById = new Map(localList.map(r=>[r.id, r]));
+    (remoteRows||[]).forEach(r=>{
+      const local = localById.get(r.id);
+      const lastSynced = syncedAt(cfg.table, r.id);
+      if(!local){
+        localList.push(cfg.fromRemote(r));
+        markSynced(cfg.table, r.id, r.updated_at||0);
+        changed = true;
+        return;
+      }
+      const localChanged = (local.updatedAt||0) > lastSynced;
+      const remoteChanged = (r.updated_at||0) > lastSynced;
+      if(remoteChanged && localChanged){
+        const loserCopy = JSON.parse(JSON.stringify(local));
+        loserCopy.id = uid();
+        loserCopy.conflictOf = r.id;
+        loserCopy.title = (loserCopy.title || 'Untitled') + ' (synced copy)';
+        loserCopy.updatedAt = Date.now();
+        localList.push(loserCopy);
+        Object.assign(local, cfg.fromRemote(r));
+        markSynced(cfg.table, r.id, r.updated_at||0);
+        changed = true;
+      } else if(remoteChanged && !localChanged){
+        Object.assign(local, cfg.fromRemote(r));
+        markSynced(cfg.table, r.id, r.updated_at||0);
+        changed = true;
+      }
+      // else: remote unchanged here since the last sync -- if local is newer, the push loop
+      // below will catch it; nothing to reconcile in this pull pass.
+    });
+    const toPush = localList.filter(r => (r.updatedAt||0) > syncedAt(cfg.table, r.id));
+    for(const r of toPush){
+      const { error: upErr } = await sb.from(cfg.table).upsert(cfg.toRemote(r, userId));
+      if(!upErr) markSynced(cfg.table, r.id, r.updatedAt||0);
+    }
+    if(changed){ cfg.persist(); renderLibrary(); }
+    persistSyncMeta();
+  }
+
+  syncEngineReady = true;
+  window.addEventListener('online', scheduleSync);
+  setInterval(scheduleSync, 60000);
+
   if(sb){
-    sb.auth.onAuthStateChange(()=> refreshAccountState());
+    sb.auth.onAuthStateChange(()=>{ refreshAccountState(); scheduleSync(); });
   }
 
   /* ============ INIT ============ */
   renderLibrary();
   renderBackupStatus();
   refreshAccountState();
+  scheduleSync();
 })();
 </script>
 </body>
