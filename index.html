@@ -329,6 +329,7 @@
     font-size:11px; color:var(--gold-dim); background:var(--gold-soft); border-radius:8px;
     padding:4px 8px; flex-shrink:0; align-self:flex-start; font-weight:600;
   }
+  .item-illust-thumb{ height:36px; width:36px; object-fit:cover; border-radius:6px; flex-shrink:0; align-self:flex-start; }
 
   /* Import modal: a compact horizontal cousin of #richToolbar, scoped to its own contenteditable
      staging box (#importStage reuses .item-text's look) rather than the global activeEditable/
@@ -525,6 +526,7 @@
   .line.quiet{ color:var(--muted); font-style:italic; font-size:calc(var(--body-size,26px) - 5px); }
   .line.scripture{ font-family:'Playfair Display',serif; font-style:italic; color:var(--gold); border-left:3px solid var(--gold-dim); padding-left:0.6em; }
   .line.illustration{ font-family:'Playfair Display',serif; font-style:italic; color:var(--orange); border-left:3px solid var(--orange); padding-left:0.6em; }
+  .present-illust-img{ display:block; max-width:100%; max-height:min(50vh,480px); border-radius:8px; margin-bottom:0.5em; }
   .line strong{ color:var(--gold); font-weight:700; }
   .line u{ text-decoration:underline; text-decoration-color:var(--gold-dim); text-decoration-thickness:2px; }
   .line ul{ margin:0.3em 0 0.3em 1.2em; padding:0; }
@@ -1802,7 +1804,7 @@
     row.innerHTML = `
       <span class="drag-handle" title="Drag to reorder"><img class="mono-ic" src="icons/drag-to-reorder.png" data-light="icons/drag-to-reorder.png" data-dark="icons/drag-to-reorder-dark.png" style="height:16px;width:16px;display:block;" alt=""></span>
       ${isIllustration
-        ? `<span class="type-label">Illustration</span>`
+        ? `<span class="type-label">Illustration</span>${it.imageData ? `<img class="item-illust-thumb" src="${escapeAttr(it.imageData)}" alt="">` : ''}`
         : `<select data-role="type">
              <option value="block">block</option>
              <option value="quiet">quiet</option>
@@ -2882,7 +2884,7 @@
         c.className = 'ipick-card';
         c.innerHTML = `${ill.imageData ? `<img class="illust-thumb illust-thumb-sm" src="${escapeAttr(ill.imageData)}" alt="">` : ''}<div class="ptitle">${escapeHtml(ill.title||'Untitled')}</div><div class="pbody">${escapeHtml(ill.body)}</div>${usageBadgeHtml(ill)}`;
         c.addEventListener('click', ()=>{
-          pickTargetSection.items.push({ id:uid(), type:'illustration', text: seedRichHtml(ill.body), sourceIllustId: ill.id });
+          pickTargetSection.items.push({ id:uid(), type:'illustration', text: seedRichHtml(ill.body), sourceIllustId: ill.id, imageData: ill.imageData || undefined });
           illustPickModal.classList.remove('open');
           renderSections();
         });
@@ -3031,7 +3033,7 @@
       // styling. That's what was actually causing bullets to render smaller than block text.
       if(it.type==='quiet') html += `<div class="line quiet">${rich}</div>`;
       else if(it.type==='scripture') html += `<div class="line scripture">${rich}</div>`;
-      else if(it.type==='illustration') html += `<div class="line illustration">${rich}</div>`;
+      else if(it.type==='illustration') html += `<div class="line illustration">${it.imageData ? `<img class="present-illust-img" src="${escapeAttr(it.imageData)}" alt="">` : ''}${rich}</div>`;
       else html += `<div class="line">${rich}</div>`;
     });
     stageEl.innerHTML = html;
@@ -3408,14 +3410,16 @@
       const path = `${userId}/${ill.id}.jpg`;
       const { error } = await sb.storage.from('illustration-images').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
       if(!error) ill.imagePath = path;
-    } catch(e){}
+      else console.error('[sync] illustration image upload failed', ill.id, error);
+    } catch(e){ console.error('[sync] illustration image upload threw', ill.id, e); }
   }
   async function illustAfterPull(local, r){
     if(!r.image_path || (local.imageData && local.imagePath === r.image_path)) return;
     try{
       const { data, error } = await sb.storage.from('illustration-images').download(r.image_path);
       if(!error && data){ local.imageData = await blobToDataUrl(data); local.imagePath = r.image_path; }
-    } catch(e){}
+      else if(error) console.error('[sync] illustration image download failed', r.id, error);
+    } catch(e){ console.error('[sync] illustration image download threw', r.id, e); }
   }
 
   const SYNC_TABLES = {
@@ -3492,6 +3496,8 @@
       // Best-effort background reconciliation: a failed pass (offline mid-sync, a transient
       // network error) just gets retried on the next scheduled or periodic pass. Local data is
       // never at risk either way, since local storage is never overwritten by a failed sync.
+      // Logged (not surfaced to the user) so a real bug is at least visible in devtools.
+      console.error('[sync] pass failed', e);
     } finally {
       syncInFlight = false;
       if(syncQueued){ syncQueued = false; scheduleSync(); }
@@ -3500,7 +3506,7 @@
 
   async function syncOneTable(cfg, userId){
     const { data: remoteRows, error } = await sb.from(cfg.table).select('*').eq('user_id', userId);
-    if(error) return;
+    if(error){ console.error('[sync] select failed for', cfg.table, error); return; }
     let changed = false;
     const localList = cfg.list();
     const localById = new Map(localList.map(r=>[r.id, r]));
@@ -3540,6 +3546,7 @@
       if(cfg.beforePush) await cfg.beforePush(r, userId);
       const { error: upErr } = await sb.from(cfg.table).upsert(cfg.toRemote(r, userId));
       if(!upErr) markSynced(cfg.table, r.id, r.updatedAt||0);
+      else console.error('[sync] upsert failed for', cfg.table, r.id, upErr);
     }
     if(changed){ cfg.persist(); cfg.render(); }
     persistSyncMeta();
