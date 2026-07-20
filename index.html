@@ -218,6 +218,13 @@
     cursor:pointer; padding:6px 0 2px;
   }
 
+  /* Account modal (sign in / entitlement) */
+  #accountModal input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:9px;
+    padding:10px 12px; font-size:14px; margin-bottom:10px; font-family:inherit; box-sizing:border-box;
+  }
+  #accountModal label{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:4px; }
+
   /* form modal (template create/edit) */
   #tplForm input{
     width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:9px;
@@ -580,6 +587,12 @@
     <span class="brand-word">shema</span>
     <button id="editorTitleDisplay" title="Edit sermon details"></button>
     <button class="btn icon" id="toolbarToggleBtn" title="Toggle formatting toolbar"><img class="mono-ic" src="icons/toolbar-toggle.png" data-light="icons/toolbar-toggle.png" data-dark="icons/toolbar-toggle-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
+    <button class="btn icon" id="accountBtn" title="Account">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
+        <circle cx="12" cy="8" r="4"></circle>
+        <path d="M4 20c0-4 4-6 8-6s8 2 8 6"></path>
+      </svg>
+    </button>
     <button class="btn icon dark-toggle" id="darkModeBtn" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:18px;width:18px;display:block;" alt=""></button>
   </div>
 
@@ -826,6 +839,34 @@
   </div>
 </div>
 
+<!-- Account: sign in (Google or email link) for cross-device sync -- signing in is optional,
+     the local-only path stays fully functional forever (see context.md business model). -->
+<div class="modal-overlay" id="accountModal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-header"><h2>Account</h2><button class="btn icon" id="closeAccountModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="scroll">
+      <div id="accountSignedOut">
+        <p style="color:var(--muted); font-size:13px; line-height:1.5; margin:0 0 16px;">
+          Shema works fully offline with no account. Sign in only if you want the same sermon
+          library synced across your devices.
+        </p>
+        <button class="btn gold" id="accountGoogleBtn" style="width:100%; margin-bottom:10px;">Continue with Google</button>
+        <div style="text-align:center; color:var(--muted); font-size:12px; margin:6px 0;">or</div>
+        <label>Email</label>
+        <input id="accountEmailInput" type="email" placeholder="you@example.com">
+        <button class="btn" id="accountEmailBtn" style="width:100%; margin-top:10px;">Email me a sign-in link</button>
+        <p id="accountEmailStatus" style="font-size:12px; color:var(--gold-dim); margin:10px 0 0; display:none;"></p>
+      </div>
+      <div id="accountSignedIn" style="display:none;">
+        <p style="font-size:14px; margin:0 0 4px;">Signed in as</p>
+        <p id="accountEmailDisplay" style="font-weight:700; margin:0 0 18px;"></p>
+        <div id="accountEntitlements" style="font-size:13px; color:var(--muted); line-height:1.8; margin-bottom:18px;"></div>
+        <button class="btn" id="accountSignOutBtn" style="width:100%;">Sign Out</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toastHost"></div>
 
 <div class="modal-overlay" id="confirmModal">
@@ -841,6 +882,9 @@
   </div>
 </div>
 
+<!-- Self-hosted, not CDN-loaded -- same zero-runtime-CDN-dependency convention as the fonts,
+     so the app still loads offline even though signing in obviously still needs a network. -->
+<script src="vendor/supabase.js"></script>
 <script>
 (function(){
   /* ============ STORAGE ============ */
@@ -3146,6 +3190,81 @@
   prepHandle.addEventListener('pointerup', endPrepDrag);
   prepHandle.addEventListener('pointercancel', endPrepDrag);
   window.addEventListener('resize', applyPrepWidth);
+
+  /* ============ ACCOUNT (Supabase auth + entitlement) ============
+     Signing in is entirely optional -- everything above this line works forever with no
+     account (see context.md business model). This section only ever reads auth state and
+     the two entitlement flags (owns_app, sync_subscription_active); it doesn't touch
+     sermons/illustrations/templates -- that's the sync engine, a separate roadmap phase not
+     built yet. The anon key below is meant to be public (same as any client-side API key) --
+     protection comes from the database's Row Level Security, not from hiding this string. */
+  const SUPABASE_URL = 'https://rzwuivjdyrunqnwlmijf.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_Z4kcLmxron4Xi0_OLKtWTA_bvf9aw4x';
+  const sb = (typeof window.supabase !== 'undefined')
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+
+  const accountModal = document.getElementById('accountModal');
+  document.getElementById('accountBtn').addEventListener('click', ()=>{
+    accountModal.classList.add('open');
+    renderAccountModal();
+  });
+  document.getElementById('closeAccountModal').addEventListener('click', ()=> accountModal.classList.remove('open'));
+
+  async function renderAccountModal(){
+    const signedOutEl = document.getElementById('accountSignedOut');
+    const signedInEl = document.getElementById('accountSignedIn');
+    if(!sb){ signedOutEl.style.display = ''; signedInEl.style.display = 'none'; return; }
+    const { data: { session } } = await sb.auth.getSession();
+    if(!session || !session.user){
+      signedOutEl.style.display = ''; signedInEl.style.display = 'none';
+      return;
+    }
+    signedOutEl.style.display = 'none'; signedInEl.style.display = '';
+    document.getElementById('accountEmailDisplay').textContent = session.user.email || session.user.id;
+    // No profiles row yet (table not created, or trigger hasn't fired) reads as "not entitled"
+    // rather than erroring -- entitlement flags are only ever written server-side anyway (see
+    // the RLS policy), so a signed-in user with no row is just a user who hasn't purchased yet.
+    const { data: profile } = await sb.from('profiles')
+      .select('owns_app, sync_subscription_active').eq('id', session.user.id).maybeSingle();
+    const ownsApp = profile ? profile.owns_app : false;
+    const syncActive = profile ? profile.sync_subscription_active : false;
+    document.getElementById('accountEntitlements').innerHTML =
+      `Full unlock: <strong>${ownsApp ? 'Yes' : 'Not yet'}</strong><br>Cross-device sync: <strong>${syncActive ? 'Active' : 'Not active'}</strong>`;
+  }
+
+  document.getElementById('accountGoogleBtn').addEventListener('click', async ()=>{
+    if(!sb) return;
+    await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + window.location.pathname }
+    });
+  });
+
+  document.getElementById('accountEmailBtn').addEventListener('click', async ()=>{
+    if(!sb) return;
+    const email = document.getElementById('accountEmailInput').value.trim();
+    const statusEl = document.getElementById('accountEmailStatus');
+    if(!email){ showToast('Enter your email first.', {danger:true}); return; }
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Sending...';
+    const { error } = await sb.auth.signInWithOtp({
+      email, options: { emailRedirectTo: window.location.origin + window.location.pathname }
+    });
+    statusEl.textContent = error
+      ? "Couldn't send that -- check the address and try again."
+      : `Check ${email} for a sign-in link.`;
+  });
+
+  document.getElementById('accountSignOutBtn').addEventListener('click', async ()=>{
+    if(!sb) return;
+    await sb.auth.signOut();
+    renderAccountModal();
+  });
+
+  if(sb){
+    sb.auth.onAuthStateChange(()=>{ if(accountModal.classList.contains('open')) renderAccountModal(); });
+  }
 
   /* ============ INIT ============ */
   renderLibrary();
