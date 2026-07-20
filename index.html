@@ -215,7 +215,7 @@
   }
   .modal-overlay.drawer-right.open{ background:rgba(10,12,15,.6); pointer-events:auto; }
   .modal-overlay.drawer-right .modal-sheet{
-    width:min(400px,92vw); max-width:400px; height:100%; max-height:none;
+    width:min(400px,92vw); height:100%; max-height:none;
     border-radius:0; box-shadow:-8px 0 28px rgba(0,0,0,.28);
     transform:translateX(100%); transition:transform .25s ease;
     padding-top:env(safe-area-inset-top);
@@ -818,8 +818,8 @@
 </div>
 
 <!-- Import notes (paste or upload, keep native formatting) -->
-<div class="modal-overlay" id="importModal">
-  <div class="modal-sheet" style="height:88vh; max-width:760px;">
+<div class="modal-overlay drawer-right" id="importModal">
+  <div class="modal-sheet" style="width:min(640px,92vw);">
     <div class="modal-sheet-header"><h2>Import Notes</h2><button class="btn icon" id="closeImportModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll" style="padding:0 18px 18px; display:flex; flex-direction:column; flex:1; min-height:0;">
       <div style="font-size:12px;color:var(--muted); margin-bottom:10px; line-height:1.5;">
@@ -876,7 +876,7 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="historyModal">
+<div class="modal-overlay drawer-right" id="historyModal">
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Version History</h2><button class="btn icon" id="closeHistoryModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll" id="historyList"></div>
@@ -894,6 +894,10 @@
           <span class="settings-row-sub" id="settingsAccountSub">Not signed in</span>
         </div>
         <span class="settings-row-chev">›</span>
+      </div>
+      <div class="settings-row" id="settingsSyncRow" style="display:none;">
+        <div class="settings-row-label"><span>Sync Now</span><span class="settings-row-sub" id="settingsSyncNowSub">Manually check for updates</span></div>
+        <button class="btn icon" id="syncNowBtn" title="Sync now">↻</button>
       </div>
       <div class="settings-row" id="settingsBackupRow">
         <div class="settings-row-label"><span>Backup</span><span class="settings-row-sub">Download everything as a file</span></div>
@@ -1306,6 +1310,9 @@
     return months === 1 ? '1 month ago' : months + ' months ago';
   }
 
+  // Set by refreshAccountState -- drives which status the library header shows (see below).
+  let signedIn = false;
+
   function renderBackupStatus(){
     const el = document.getElementById('backupStatus');
     const settingsSub = document.getElementById('settingsBackupStatusSub');
@@ -1320,8 +1327,27 @@
       stale = (Date.now() - last) > (14 * 86400000); // 14+ days
       text = 'Last backup: ' + timeAgo(last);
     }
-    if(el){ el.textContent = text; el.classList.toggle('stale', stale); }
+    // Settings' "Restore from Backup" row is always about the manual export file specifically --
+    // that's still worth having even when signed in (a portable copy outside Supabase).
     if(settingsSub) settingsSub.textContent = text;
+    // The library header's status line is the at-a-glance "is my work safe" signal. Once signed
+    // in, continuous background sync is the real answer to that -- showing a stale/never-backed-
+    // up nag next to it would be actively misleading, not just redundant, since a signed-in user
+    // with no manual export is still fully protected.
+    if(el){
+      if(signedIn) renderSyncStatusInto(el);
+      else { el.textContent = text; el.classList.toggle('stale', stale); }
+    }
+  }
+
+  function renderSyncStatusInto(el){
+    let text, stale;
+    if(syncInFlight){ text = 'Syncing…'; stale = false; }
+    else if(!lastSyncInfo.at){ text = 'Not synced yet'; stale = false; }
+    else if(!lastSyncInfo.ok){ text = 'Sync error · ' + timeAgo(lastSyncInfo.at); stale = true; }
+    else { text = 'Synced ' + timeAgo(lastSyncInfo.at); stale = false; }
+    el.textContent = text;
+    el.classList.toggle('stale', stale);
   }
 
   document.getElementById('librarySearchInput').addEventListener('input', e=>{
@@ -2686,6 +2712,7 @@
     importModal.classList.add('open');
   });
   document.getElementById('closeImportModal').addEventListener('click', ()=> importModal.classList.remove('open'));
+  importModal.addEventListener('click', e=>{ if(e.target === importModal) importModal.classList.remove('open'); });
 
   importStage.addEventListener('paste', async (e)=>{
     e.preventDefault();
@@ -3058,6 +3085,7 @@
     historyModal.classList.add('open');
   });
   document.getElementById('closeHistoryModal').addEventListener('click', ()=> historyModal.classList.remove('open'));
+  historyModal.addEventListener('click', e=>{ if(e.target === historyModal) historyModal.classList.remove('open'); });
 
   /* ============ PRESENT ============ */
   let presentSections = [];
@@ -3418,6 +3446,7 @@
     renderBackupStatus();
   });
   document.getElementById('closeSettingsModal').addEventListener('click', ()=> settingsModal.classList.remove('open'));
+  document.getElementById('syncNowBtn').addEventListener('click', manualSyncNow);
   document.getElementById('settingsAccountRow').addEventListener('click', ()=>{
     settingsModal.classList.remove('open');
     accountModal.classList.add('open');
@@ -3431,17 +3460,26 @@
     const signedOutEl = document.getElementById('accountSignedOut');
     const signedInEl = document.getElementById('accountSignedIn');
     const settingsSub = document.getElementById('settingsAccountSub');
+    const syncRow = document.getElementById('settingsSyncRow');
     if(!sb){
+      signedIn = false;
       signedOutEl.style.display = ''; signedInEl.style.display = 'none';
       settingsSub.textContent = 'Not signed in';
+      if(syncRow) syncRow.style.display = 'none';
+      renderBackupStatus();
       return;
     }
     const { data: { session } } = await sb.auth.getSession();
     if(!session || !session.user){
+      signedIn = false;
       signedOutEl.style.display = ''; signedInEl.style.display = 'none';
       settingsSub.textContent = 'Not signed in';
+      if(syncRow) syncRow.style.display = 'none';
+      renderBackupStatus();
       return;
     }
+    signedIn = true;
+    if(syncRow) syncRow.style.display = '';
     signedOutEl.style.display = 'none'; signedInEl.style.display = '';
     // No profiles row yet (table not created, or trigger hasn't fired) reads as "not entitled"
     // rather than erroring -- entitlement flags are only ever written server-side anyway (see
@@ -3457,6 +3495,7 @@
     document.getElementById('acctSyncActive').textContent = syncActive ? 'Active' : 'Not active';
     document.getElementById('acctBillingSection').style.display = (type === 'sync') ? '' : 'none';
     settingsSub.textContent = 'Signed in · ' + type.charAt(0).toUpperCase() + type.slice(1);
+    renderBackupStatus();
   }
 
   document.getElementById('accountGoogleBtn').addEventListener('click', async ()=>{
@@ -3540,22 +3579,67 @@
     } catch(e){ console.error('[sync] illustration image download threw', r.id, e); }
   }
 
+  // Same Storage-object pattern as illustBeforePush/illustAfterPull above, but for images that
+  // ride *inside* a sermon's items (see the illustration-into-sermon insertion) -- those were
+  // still riding as raw base64 inside the sermon's `sections` jsonb, which reintroduces the exact
+  // row-bloat problem the illustrations table was moved off of. The path is keyed by the sermon
+  // item's own id (not the source illustration's), since the same illustration can be inserted
+  // into multiple sermons/items, each needing its own Storage copy so it survives independently
+  // of the original illustration being edited or deleted later.
+  async function sermonBeforePush(s, userId){
+    for(const sec of (s.sections||[])){
+      for(const it of (sec.items||[])){
+        if(!it.imageData) continue;
+        const path = `${userId}/sermon-items/${it.id}.jpg`;
+        if(it.imagePath === path) continue; // already uploaded this exact image, skip re-uploading on every unrelated edit
+        try{
+          const blob = await (await fetch(it.imageData)).blob();
+          const { error } = await sb.storage.from('illustration-images').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+          if(!error) it.imagePath = path;
+          else console.error('[sync] sermon item image upload failed', it.id, error);
+        } catch(e){ console.error('[sync] sermon item image upload threw', it.id, e); }
+      }
+    }
+  }
+  async function sermonAfterPull(local, r){
+    for(const sec of (local.sections||[])){
+      for(const it of (sec.items||[])){
+        if(!it.imagePath || it.imageData) continue;
+        try{
+          const { data, error } = await sb.storage.from('illustration-images').download(it.imagePath);
+          if(!error && data) it.imageData = await blobToDataUrl(data);
+          else if(error) console.error('[sync] sermon item image download failed', it.id, error);
+        } catch(e){ console.error('[sync] sermon item image download threw', it.id, e); }
+      }
+    }
+  }
+
   const SYNC_TABLES = {
     sermons: {
       table: 'sermons',
       list: () => sermons,
       persist: () => saveJSON(STORE_KEY_SERMONS, sermons),
       render: renderLibrary,
+      // sections is mapped rather than sent as-is so any inline illustration image (see
+      // sermonBeforePush) never rides along in the jsonb payload -- only imagePath (the Storage
+      // pointer) does. imageData itself stays local-only, exactly like the illustrations table.
       toRemote: (s, userId) => ({
         id: s.id, user_id: userId, title: s.title||'', series: s.series||'', date: s.date||'',
-        sections: s.sections||[], schema_version: s.schemaVersion||1, device_id: deviceId,
+        sections: (s.sections||[]).map(sec => ({ ...sec, items: (sec.items||[]).map(it => {
+          if(!it.imageData) return it;
+          const { imageData, ...rest } = it;
+          return rest;
+        })})),
+        schema_version: s.schemaVersion||1, device_id: deviceId,
         deleted: !!s.deleted, conflict_of: s.conflictOf || null, updated_at: s.updatedAt||0
       }),
       fromRemote: (r) => normalizeSermon({
         id: r.id, title: r.title||'', series: r.series||'', date: r.date||'',
         sections: r.sections||[], schemaVersion: r.schema_version||1,
         deleted: !!r.deleted, conflictOf: r.conflict_of||undefined, updatedAt: r.updated_at||0
-      })
+      }),
+      beforePush: sermonBeforePush,
+      afterPull: sermonAfterPull
     },
     illustrations: {
       table: 'illustrations',
@@ -3594,6 +3678,9 @@
   let syncInFlight = false;
   let syncQueued = false;
   let syncTimer = null;
+  // Surfaced in the library header and Settings (see renderSyncStatusInto) so a failed pass is
+  // visible to the user, not just to devtools -- { at: <epoch of last completed pass>, ok: bool }.
+  let lastSyncInfo = { at: null, ok: null };
   function scheduleSync(){
     if(!syncEngineReady || !sb) return;
     clearTimeout(syncTimer);
@@ -3606,25 +3693,42 @@
     const { data: { session } } = await sb.auth.getSession();
     if(!session || !session.user) return;
     syncInFlight = true;
+    renderBackupStatus();
+    let allOk = true;
     try{
       for(const key of Object.keys(SYNC_TABLES)){
-        await syncOneTable(SYNC_TABLES[key], session.user.id);
+        const ok = await syncOneTable(SYNC_TABLES[key], session.user.id);
+        if(!ok) allOk = false;
       }
     } catch(e){
       // Best-effort background reconciliation: a failed pass (offline mid-sync, a transient
       // network error) just gets retried on the next scheduled or periodic pass. Local data is
       // never at risk either way, since local storage is never overwritten by a failed sync.
-      // Logged (not surfaced to the user) so a real bug is at least visible in devtools.
+      allOk = false;
       console.error('[sync] pass failed', e);
     } finally {
       syncInFlight = false;
+      lastSyncInfo = { at: Date.now(), ok: allOk };
+      renderBackupStatus();
       if(syncQueued){ syncQueued = false; scheduleSync(); }
     }
   }
 
+  // Manual "Sync Now": bypasses the 2.5s debounce so the user sees an immediate result, but
+  // still rate-limited (5s) so repeated taps can't hammer Supabase or overlap with each other.
+  let lastManualSyncAt = 0;
+  function manualSyncNow(){
+    const now = Date.now();
+    if(now - lastManualSyncAt < 5000) return;
+    lastManualSyncAt = now;
+    clearTimeout(syncTimer);
+    runSync();
+  }
+
   async function syncOneTable(cfg, userId){
     const { data: remoteRows, error } = await sb.from(cfg.table).select('*').eq('user_id', userId);
-    if(error){ console.error('[sync] select failed for', cfg.table, error); return; }
+    if(error){ console.error('[sync] select failed for', cfg.table, error); return false; }
+    let ok = true;
     let changed = false;
     const localList = cfg.list();
     const localById = new Map(localList.map(r=>[r.id, r]));
@@ -3664,10 +3768,11 @@
       if(cfg.beforePush) await cfg.beforePush(r, userId);
       const { error: upErr } = await sb.from(cfg.table).upsert(cfg.toRemote(r, userId));
       if(!upErr) markSynced(cfg.table, r.id, r.updatedAt||0);
-      else console.error('[sync] upsert failed for', cfg.table, r.id, upErr);
+      else { console.error('[sync] upsert failed for', cfg.table, r.id, upErr); ok = false; }
     }
     if(changed){ cfg.persist(); cfg.render(); }
     persistSyncMeta();
+    return ok;
   }
 
   syncEngineReady = true;
