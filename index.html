@@ -152,6 +152,9 @@
     letter-spacing:.5px; text-transform:uppercase; font-weight:600; font-family:'Playfair Display',serif;
   }
   .nav-item .ic{ width:22px; height:22px; object-fit:contain; display:block; }
+  /* Inline SVG (not a raster .ic) so the gold "active" color comes from currentColor/inheritance
+     instead of the filter-based recolor trick the PNG nav icons need. */
+  .nav-item .nav-ic-svg{ width:22px; height:22px; display:block; }
   .nav-item.active{ color:var(--gold); } .nav-item.active .ic{ filter:invert(1) sepia(1) saturate(5) hue-rotate(-10deg) brightness(0.9) contrast(1.4); }
   body.dark-mode .nav-item.active .ic{ filter:sepia(1) saturate(3) hue-rotate(-10deg) brightness(1.05); }
 
@@ -215,7 +218,7 @@
   }
   .modal-overlay.drawer-right.open{ background:rgba(10,12,15,.6); pointer-events:auto; }
   .modal-overlay.drawer-right .modal-sheet{
-    width:min(400px,92vw); max-width:400px; height:100%; max-height:none;
+    width:min(400px,92vw); height:100%; max-height:none;
     border-radius:0; box-shadow:-8px 0 28px rgba(0,0,0,.28);
     transform:translateX(100%); transition:transform .25s ease;
     padding-top:env(safe-area-inset-top);
@@ -570,6 +573,72 @@
   #fontPop.open{ display:flex; }
   #fontPop button{ background:var(--panel); border:1px solid var(--line); color:var(--text); width:36px; height:36px; border-radius:8px; font-size:16px; }
 
+  /* ===== PRACTICE ===== (own class names throughout -- deliberately not sharing Present's ID
+     rules, so nothing here can ever affect the view actually used for live preaching. .line,
+     .timer-btn, .nav-btn, .top-actions, .dark-toggle and the --body-size/--title-size vars are
+     genuinely shared already since those were class/custom-property based to begin with.) */
+  .practice-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .practice-top::-webkit-scrollbar{ display:none; }
+  .practice-timer-display{
+    font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:26px; letter-spacing:1px;
+    color:var(--text); border:1px solid var(--line); border-radius:8px; padding:4px 10px; min-width:96px; text-align:center;
+  }
+  .practice-timer-display.running{ border-color:var(--gold-dim); color:var(--gold-dim); }
+  .practice-sermon-info{ flex:1; min-width:0; text-align:center; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-family:'Playfair Display',serif; color:var(--text); opacity:0.85; font-size:13px; padding:0 14px; }
+  .practice-track{ display:flex; gap:6px; padding:8px 14px; background:var(--bg); border-bottom:1px solid var(--line); overflow-x:auto; flex-shrink:0; }
+  .practice-stage{ flex:1; overflow:hidden; position:relative; display:flex; align-items:flex-start; justify-content:center; padding:4vh 6vw; }
+  .practice-section-label{ position:absolute; top:14px; left:50%; transform:translateX(-50%); font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--gold-dim); }
+  .practice-section-content{ width:100%; max-width:900px; margin-top:44px; overflow-y:auto; max-height:calc(100% - 44px); padding-right:4px; scrollbar-width:none; }
+  .practice-section-content::-webkit-scrollbar{ display:none; }
+  .practice-section-title{ font-family:'Playfair Display',serif; font-weight:700; font-size:var(--title-size,44px); line-height:1.1; margin:0 0 26px; border-bottom:2px solid var(--gold-dim); padding-bottom:14px; }
+  .practice-sermon-cover{ margin:0 0 30px; padding-bottom:22px; border-bottom:2px solid var(--gold); }
+  .practice-sermon-cover-series{
+    font-family:'Inter',sans-serif; font-size:calc(var(--body-size,26px) * 0.5); font-weight:700;
+    letter-spacing:1.5px; text-transform:uppercase; color:var(--gold-dim); margin:0 0 8px;
+  }
+  .practice-sermon-cover-title{
+    font-family:'Playfair Display',serif; font-weight:700; color:var(--gold);
+    font-size:calc(var(--title-size,44px) * 1.15); line-height:1.1; margin:0;
+  }
+  .practice-empty{ color:var(--muted); font-size:18px; text-align:center; margin-top:15vh; line-height:1.6; }
+  .practice-nav-bar{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--panel); border-top:1px solid var(--line); flex-shrink:0; padding-bottom:calc(12px + env(safe-area-inset-bottom)); }
+  .practice-nav-counter{ color:var(--muted); font-size:13px; font-family:'IBM Plex Mono',monospace; }
+  .practice-take-row{ display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--line); }
+  .practice-take-row:last-child{ border-bottom:none; }
+  .practice-take-info{ flex:1; min-width:0; }
+  .practice-take-info .ptr-when{ font-size:13px; font-weight:600; color:var(--text); }
+  .practice-take-info .ptr-dur{ font-size:12px; color:var(--muted); }
+  .practice-take-row audio{ max-width:100%; height:32px; }
+  .practice-empty-takes{ color:var(--muted); font-size:14px; text-align:center; padding:24px 0; }
+  /* Tap-to-annotate affordance, scoped to Practice's own stage container so Present's identical
+     .line markup is never affected -- only Practice ever adds the cursor/active feedback or the
+     has-note class in the first place. */
+  .practice-section-content .line{ cursor:pointer; border-radius:6px; transition:background .12s ease; }
+  .practice-section-content .line:active{ background:var(--panel-2); }
+  .line.has-note::before{ content:''; display:inline-block; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--gold); vertical-align:middle; }
+  .practice-note-excerpt{ font-size:13px; color:var(--muted); font-style:italic; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+  .practice-note-input{
+    width:100%; box-sizing:border-box; background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
+    padding:10px 12px; font-size:15px; font-family:inherit; color:var(--text); resize:vertical;
+  }
+
+  @media (max-width:480px){
+    .practice-top{ gap:6px; padding:8px 10px; }
+    .practice-timer-display{ min-width:80px; font-size:20px; padding:4px 6px; }
+    .practice-sermon-info{ padding:0 4px; font-size:11px; display:none; }
+  }
+  @media (min-width:768px){
+    .practice-timer-display{ font-size:32px; min-width:120px; padding:6px 14px; }
+    .practice-section-content{ max-width:none; }
+    .practice-stage{ padding-left:50px; padding-right:50px; }
+  }
+  @media (min-width:1000px){
+    .practice-stage{ padding-left:80px; padding-right:80px; }
+  }
+  @media (min-width:1600px){
+    .practice-stage{ padding-left:120px; padding-right:120px; }
+  }
+
   @media (max-width:480px){
     #presentTop{ gap:6px; padding:8px 10px; }
     .present-left{ gap:8px; }
@@ -763,11 +832,85 @@
     </div>
   </div>
 
+  <!-- Practice: a separate view from Present (own DOM/ids throughout, no shared state) so
+       recording/take controls never have any chance of touching the actual live-preaching view.
+       Visual language matches Present via shared classes (.line, .timer-btn, .nav-btn, CSS vars)
+       but layout containers get their own practice-prefixed classes -- see the CSS block below. -->
+  <div class="view" id="view-practice">
+    <div class="practice-top">
+      <div class="timer-block">
+        <div class="countdown-row">
+          <button class="timer-btn" id="practicePlayBtn" title="Start/pause practice">Start</button>
+          <div class="practice-timer-display" id="practiceTimerDisplay">00:00</div>
+          <button class="timer-btn" id="practiceDiscardBtn" title="Discard this take and reset the timer">Discard</button>
+        </div>
+      </div>
+      <div class="practice-sermon-info" id="practiceSermonInfo"></div>
+      <div class="top-actions">
+        <button class="btn icon" id="practiceNotesBtn" title="Practice notes for this sermon">Notes</button>
+        <button class="btn icon" id="practiceTakesBtn" title="Past takes for this sermon">Takes</button>
+        <button class="btn gold" id="practiceFinishBtn" title="Stop recording and save this take">Finish</button>
+        <button class="icon-btn dark-toggle" id="darkModeBtnPractice" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:16px;width:16px;display:block;" alt=""></button>
+      </div>
+    </div>
+    <div class="practice-track" id="practiceTrack"></div>
+    <div class="practice-stage" id="practiceStage">
+      <div class="practice-section-label" id="practiceSectionLabel"></div>
+      <div class="practice-section-content" id="practiceSectionContent"></div>
+    </div>
+    <div class="practice-nav-bar">
+      <button class="nav-btn" id="practicePrevBtn">Prev</button>
+      <div class="present-nav-center">
+        <button class="nav-btn" id="practiceDoneBtn">Home</button>
+        <span class="practice-nav-counter" id="practiceNavCounter"></span>
+      </div>
+      <button class="nav-btn" id="practiceNextBtn">Next</button>
+    </div>
+  </div>
+
+  <!-- Past practice takes for the sermon currently open in Practice -- a "settle in and listen
+       back" list, same reasoning as History/Import getting the drawer treatment. -->
+  <div class="modal-overlay drawer-right" id="practiceTakesModal">
+    <div class="modal-sheet">
+      <div class="modal-sheet-header"><h2>Past Takes</h2><button class="btn icon" id="closePracticeTakesModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+      <div class="scroll" id="practiceTakesList"></div>
+    </div>
+  </div>
+
+  <!-- Tapping an item in Practice's stage opens this -- a quick single-field form, so it stays a
+       bottom sheet (not drawer-right) same as the sermon-info/illustration-add popups. -->
+  <div class="modal-overlay" id="practiceNoteModal">
+    <div class="modal-sheet">
+      <div class="modal-sheet-header"><h2>Practice Note</h2><button class="btn icon" id="closePracticeNoteModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+      <div class="scroll" style="padding:0 18px 18px;">
+        <div id="practiceNoteExcerpt" class="practice-note-excerpt"></div>
+        <textarea id="practiceNoteInput" class="practice-note-input" rows="4" placeholder="What needs to change here?"></textarea>
+        <div style="display:flex; gap:8px; margin-top:14px;">
+          <button class="btn icon danger" id="practiceNoteDeleteBtn" style="display:none;">Delete</button>
+          <button class="btn gold" id="practiceNoteSaveBtn" style="flex:1;">Save Note</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All notes for the sermon currently open in Practice -- same "settle in and review" reasoning
+       as Past Takes. -->
+  <div class="modal-overlay drawer-right" id="practiceNotesModal">
+    <div class="modal-sheet">
+      <div class="modal-sheet-header"><h2>Practice Notes</h2><button class="btn icon" id="closePracticeNotesModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+      <div class="scroll" id="practiceNotesList"></div>
+    </div>
+  </div>
+
   <div id="bottomnav">
     <button class="nav-item active" data-view="library"><img class="ic nav-ic" src="icons/nav-library.png" data-light="icons/nav-library.png" data-dark="icons/nav-library-dark.png" alt="">Library</button>
     <button class="nav-item" data-view="plan"><img class="ic nav-ic" src="icons/nav-plan.png" data-light="icons/nav-plan.png" data-dark="icons/nav-plan-dark.png" alt="">Plan</button>
     <button class="nav-item" data-view="editor"><img class="ic nav-ic" src="icons/nav-editor.png" data-light="icons/nav-editor.png" data-dark="icons/nav-editor-dark.png" alt="">Prepare</button>
     <button class="nav-item" data-view="illustrations"><img class="ic nav-ic" src="icons/nav-illustrations.png" data-light="icons/nav-illustrations.png" data-dark="icons/nav-illustrations-dark.png" alt="">Illustrations</button>
+    <button class="nav-item" data-view="practice">
+      <svg class="nav-ic-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l3 2"></path><path d="M9 3h6"></path><path d="M12 3v3"></path></svg>
+      Practice
+    </button>
     <button class="nav-item" data-view="present"><img class="ic nav-ic" src="icons/nav-present.png" data-light="icons/nav-present.png" data-dark="icons/nav-present-dark.png" alt="">Present</button>
   </div>
 </div>
@@ -818,8 +961,8 @@
 </div>
 
 <!-- Import notes (paste or upload, keep native formatting) -->
-<div class="modal-overlay" id="importModal">
-  <div class="modal-sheet" style="height:88vh; max-width:760px;">
+<div class="modal-overlay drawer-right" id="importModal">
+  <div class="modal-sheet" style="width:min(640px,92vw);">
     <div class="modal-sheet-header"><h2>Import Notes</h2><button class="btn icon" id="closeImportModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll" style="padding:0 18px 18px; display:flex; flex-direction:column; flex:1; min-height:0;">
       <div style="font-size:12px;color:var(--muted); margin-bottom:10px; line-height:1.5;">
@@ -876,7 +1019,7 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="historyModal">
+<div class="modal-overlay drawer-right" id="historyModal">
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Version History</h2><button class="btn icon" id="closeHistoryModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll" id="historyList"></div>
@@ -894,6 +1037,10 @@
           <span class="settings-row-sub" id="settingsAccountSub">Not signed in</span>
         </div>
         <span class="settings-row-chev">›</span>
+      </div>
+      <div class="settings-row" id="settingsSyncRow" style="display:none;">
+        <div class="settings-row-label"><span>Sync Now</span><span class="settings-row-sub" id="settingsSyncNowSub">Manually check for updates</span></div>
+        <button class="btn icon" id="syncNowBtn" title="Sync now">↻</button>
       </div>
       <div class="settings-row" id="settingsBackupRow">
         <div class="settings-row-label"><span>Backup</span><span class="settings-row-sub">Download everything as a file</span></div>
@@ -1247,7 +1394,7 @@
   }
 
   /* ============ VIEW SWITCHING ============ */
-  const views = ['library','plan','editor','illustrations','present'];
+  const views = ['library','plan','editor','illustrations','practice','present'];
   function showView(name){
     // Removing the editor's own back button means every path away from Prepare now goes
     // through here -- bottom nav taps included. saveEditing() is a no-op if nothing's being
@@ -1256,15 +1403,20 @@
     if(document.getElementById('view-editor').classList.contains('active') && name!=='editor'){
       saveEditing();
     }
+    // Leaving Practice mid-recording (any nav tap, not just the Home button inside the view)
+    // saves rather than silently drops the take -- same reasoning as the editor autosave above.
+    if(document.getElementById('view-practice').classList.contains('active') && name!=='practice'){
+      finishPractice();
+    }
     views.forEach(v=>{
       document.getElementById('view-'+v).classList.toggle('active', v===name);
     });
     document.querySelectorAll('.nav-item').forEach(b=>{
       b.classList.toggle('active', b.dataset.view===name);
     });
-    document.getElementById('brandbar').style.display = (name==='present') ? 'none' : 'flex';
+    document.getElementById('brandbar').style.display = (name==='present'||name==='practice') ? 'none' : 'flex';
     document.getElementById('brandbar').classList.toggle('editor-active', name==='editor');
-    document.getElementById('bottomnav').style.display = (name==='present') ? 'none' : 'flex';
+    document.getElementById('bottomnav').style.display = (name==='present'||name==='practice') ? 'none' : 'flex';
     if(name==='library') renderLibrary();
     if(name==='plan') renderPlan();
     if(name==='illustrations') renderIllustrations();
@@ -1306,6 +1458,9 @@
     return months === 1 ? '1 month ago' : months + ' months ago';
   }
 
+  // Set by refreshAccountState -- drives which status the library header shows (see below).
+  let signedIn = false;
+
   function renderBackupStatus(){
     const el = document.getElementById('backupStatus');
     const settingsSub = document.getElementById('settingsBackupStatusSub');
@@ -1320,8 +1475,27 @@
       stale = (Date.now() - last) > (14 * 86400000); // 14+ days
       text = 'Last backup: ' + timeAgo(last);
     }
-    if(el){ el.textContent = text; el.classList.toggle('stale', stale); }
+    // Settings' "Restore from Backup" row is always about the manual export file specifically --
+    // that's still worth having even when signed in (a portable copy outside Supabase).
     if(settingsSub) settingsSub.textContent = text;
+    // The library header's status line is the at-a-glance "is my work safe" signal. Once signed
+    // in, continuous background sync is the real answer to that -- showing a stale/never-backed-
+    // up nag next to it would be actively misleading, not just redundant, since a signed-in user
+    // with no manual export is still fully protected.
+    if(el){
+      if(signedIn) renderSyncStatusInto(el);
+      else { el.textContent = text; el.classList.toggle('stale', stale); }
+    }
+  }
+
+  function renderSyncStatusInto(el){
+    let text, stale;
+    if(syncInFlight){ text = 'Syncing…'; stale = false; }
+    else if(!lastSyncInfo.at){ text = 'Not synced yet'; stale = false; }
+    else if(!lastSyncInfo.ok){ text = 'Sync error · ' + timeAgo(lastSyncInfo.at); stale = true; }
+    else { text = 'Synced ' + timeAgo(lastSyncInfo.at); stale = false; }
+    el.textContent = text;
+    el.classList.toggle('stale', stale);
   }
 
   document.getElementById('librarySearchInput').addEventListener('input', e=>{
@@ -1368,6 +1542,7 @@
       </div>
       <div class="actions">
         <button class="btn icon" data-act="present" title="Present">Present</button>
+        <button class="btn icon" data-act="practice" title="Rehearse with a recording">Practice</button>
         <button class="btn icon" data-act="edit" title="Edit">Edit</button>
         ${conflictOriginal ? `<button class="btn icon" data-act="keep-this" title="Make this version the only one, replacing the other">Keep This</button>` : ''}
         ${s.conflictOf ? `<button class="btn icon" data-act="keep-both" title="Keep both permanently as separate sermons">Keep Both</button>` : ''}
@@ -1375,6 +1550,7 @@
       </div>`;
     card.querySelector('[data-act="edit"]').addEventListener('click', ()=> openEditor(s.id));
     card.querySelector('[data-act="present"]').addEventListener('click', ()=> presentSermon(s.id));
+    card.querySelector('[data-act="practice"]').addEventListener('click', ()=> practiceSermon(s.id));
     if(conflictOriginal){
       card.querySelector('[data-act="keep-this"]').addEventListener('click', async ()=>{
         const ok = await showConfirm({
@@ -2686,6 +2862,7 @@
     importModal.classList.add('open');
   });
   document.getElementById('closeImportModal').addEventListener('click', ()=> importModal.classList.remove('open'));
+  importModal.addEventListener('click', e=>{ if(e.target === importModal) importModal.classList.remove('open'); });
 
   importStage.addEventListener('paste', async (e)=>{
     e.preventDefault();
@@ -3058,6 +3235,7 @@
     historyModal.classList.add('open');
   });
   document.getElementById('closeHistoryModal').addEventListener('click', ()=> historyModal.classList.remove('open'));
+  historyModal.addEventListener('click', e=>{ if(e.target === historyModal) historyModal.classList.remove('open'); });
 
   /* ============ PRESENT ============ */
   let presentSections = [];
@@ -3113,6 +3291,30 @@
     });
   }
 
+  // Shared between Present's renderStage and Practice's renderPracticeStage -- pure string
+  // building, no DOM ids touched, so it's safe for both views to call without either affecting
+  // the other's markup.
+  function buildStageItemsHtml(items){
+    let html = '';
+    items.forEach(it=>{
+      const rich = sanitizeRichText(seedRichHtml(it.text));
+      // Using <div>, not <p>: rich content can include block-level markup (<ul>, <blockquote>)
+      // from the editor's bullet/quote formatting. A <p> auto-closes the instant a block-level
+      // child appears, which silently ejects that content from the .line wrapper -- it stops
+      // inheriting --body-size entirely and falls back to the browser's tiny default list
+      // styling. That's what was actually causing bullets to render smaller than block text.
+      // data-item-id is inert for Present (nothing reads it there) -- only Practice's own click
+      // delegation and has-note post-processing key off it, so Present's output/behavior is
+      // unaffected either way.
+      const idAttr = ` data-item-id="${escapeAttr(it.id)}"`;
+      if(it.type==='quiet') html += `<div class="line quiet"${idAttr}>${rich}</div>`;
+      else if(it.type==='scripture') html += `<div class="line scripture"${idAttr}>${rich}</div>`;
+      else if(it.type==='illustration') html += `<div class="line illustration"${idAttr}>${it.imageData ? `<img class="present-illust-img" src="${escapeAttr(it.imageData)}" alt="">` : ''}${rich}</div>`;
+      else html += `<div class="line"${idAttr}>${rich}</div>`;
+    });
+    return html;
+  }
+
   function renderStage(){
     document.documentElement.style.setProperty('--body-size', bodySize+'px');
     document.documentElement.style.setProperty('--title-size', titleSize+'px');
@@ -3140,18 +3342,7 @@
       html += `</div>`;
     }
     html += `<div id="sectionTitle">${escapeHtml(s.title)}</div>`;
-    s.items.forEach(it=>{
-      const rich = sanitizeRichText(seedRichHtml(it.text));
-      // Using <div>, not <p>: rich content can include block-level markup (<ul>, <blockquote>)
-      // from the editor's bullet/quote formatting. A <p> auto-closes the instant a block-level
-      // child appears, which silently ejects that content from the .line wrapper -- it stops
-      // inheriting --body-size entirely and falls back to the browser's tiny default list
-      // styling. That's what was actually causing bullets to render smaller than block text.
-      if(it.type==='quiet') html += `<div class="line quiet">${rich}</div>`;
-      else if(it.type==='scripture') html += `<div class="line scripture">${rich}</div>`;
-      else if(it.type==='illustration') html += `<div class="line illustration">${it.imageData ? `<img class="present-illust-img" src="${escapeAttr(it.imageData)}" alt="">` : ''}${rich}</div>`;
-      else html += `<div class="line">${rich}</div>`;
-    });
+    html += buildStageItemsHtml(s.items);
     stageEl.innerHTML = html;
     stageEl.scrollTop = 0;
     navCounter.textContent = `${current+1} / ${presentSections.length}`;
@@ -3277,6 +3468,425 @@
   timerDisplay.addEventListener('pointercancel', ()=>{ scrubStartY = null; });
 
   updateTimerDisplay();
+
+  /* ============ PRACTICE ============
+     A separate view/state from Present throughout (own sections/current/meta/DOM ids -- see the
+     HTML comment above #view-practice) so nothing here can ever affect the view actually used
+     for live preaching. Audio is recorded locally via MediaRecorder and kept in IndexedDB only --
+     never synced, never leaves the device. IndexedDB (not localStorage) specifically because a
+     recording needs to survive a reload (so a pastor can compare today's practice run against a
+     past one, which rules out in-memory-only) and localStorage is string-only with a ~5-10MB
+     ceiling that a single recording could blow past on its own. Keeps the last
+     PRACTICE_RETENTION takes per sermon -- recording past that silently drops the oldest.
+  */
+  const PRACTICE_DB_NAME = 'shema_practice';
+  const PRACTICE_STORE = 'takes';
+  const PRACTICE_RETENTION = 3;
+  let practiceDbPromise = null;
+
+  function openPracticeDb(){
+    if(practiceDbPromise) return practiceDbPromise;
+    practiceDbPromise = new Promise((resolve, reject)=>{
+      if(!('indexedDB' in window)){ reject(new Error('IndexedDB unavailable')); return; }
+      const req = indexedDB.open(PRACTICE_DB_NAME, 1);
+      req.onupgradeneeded = ()=>{
+        const store = req.result.createObjectStore(PRACTICE_STORE, { keyPath: 'id' });
+        store.createIndex('bySermon', 'sermonId');
+      };
+      req.onsuccess = ()=> resolve(req.result);
+      req.onerror = ()=> reject(req.error);
+    });
+    return practiceDbPromise;
+  }
+
+  function getPracticeTakesRaw(db, sermonId){
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(PRACTICE_STORE, 'readonly');
+      const req = tx.objectStore(PRACTICE_STORE).index('bySermon').getAll(sermonId);
+      req.onsuccess = ()=> resolve(req.result);
+      req.onerror = ()=> reject(req.error);
+    });
+  }
+
+  async function enforcePracticeRetention(db, sermonId){
+    const takes = (await getPracticeTakesRaw(db, sermonId)).sort((a,b)=>b.createdAt-a.createdAt);
+    const toDelete = takes.slice(PRACTICE_RETENTION);
+    if(!toDelete.length) return false;
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction(PRACTICE_STORE, 'readwrite');
+      const store = tx.objectStore(PRACTICE_STORE);
+      toDelete.forEach(t=> store.delete(t.id));
+      tx.oncomplete = resolve; tx.onerror = ()=> reject(tx.error);
+    });
+    return true;
+  }
+
+  async function savePracticeTake(sermonId, blob, durationSec){
+    const db = await openPracticeDb();
+    const take = { id: uid(), sermonId, blob, durationSec, createdAt: Date.now() };
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction(PRACTICE_STORE, 'readwrite');
+      tx.objectStore(PRACTICE_STORE).put(take);
+      tx.oncomplete = resolve; tx.onerror = ()=> reject(tx.error);
+    });
+    const droppedOldest = await enforcePracticeRetention(db, sermonId);
+    return droppedOldest;
+  }
+
+  async function listPracticeTakes(sermonId){
+    const db = await openPracticeDb();
+    return (await getPracticeTakesRaw(db, sermonId)).sort((a,b)=>b.createdAt-a.createdAt);
+  }
+
+  async function deletePracticeTake(id){
+    const db = await openPracticeDb();
+    await new Promise((resolve, reject)=>{
+      const tx = db.transaction(PRACTICE_STORE, 'readwrite');
+      tx.objectStore(PRACTICE_STORE).delete(id);
+      tx.oncomplete = resolve; tx.onerror = ()=> reject(tx.error);
+    });
+  }
+
+  /* ---- recording ---- */
+  let practiceStream = null, practiceRecorder = null, practiceChunks = [];
+
+  function pickAudioMimeType(){
+    if(!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
+    return ['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(c => MediaRecorder.isTypeSupported(c)) || '';
+  }
+
+  async function startPracticeRecording(){
+    if(!navigator.mediaDevices || !window.MediaRecorder){
+      showToast("Recording isn't supported in this browser.");
+      return false;
+    }
+    try{
+      practiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch(e){
+      console.error('[practice] mic access failed', e);
+      showToast('Microphone access is needed to record practice audio.');
+      return false;
+    }
+    practiceChunks = [];
+    const mimeType = pickAudioMimeType();
+    practiceRecorder = mimeType ? new MediaRecorder(practiceStream, { mimeType }) : new MediaRecorder(practiceStream);
+    practiceRecorder.ondataavailable = e => { if(e.data && e.data.size) practiceChunks.push(e.data); };
+    practiceRecorder.start();
+    return true;
+  }
+  function pausePracticeRecording(){ if(practiceRecorder && practiceRecorder.state==='recording') practiceRecorder.pause(); }
+  function resumePracticeRecording(){ if(practiceRecorder && practiceRecorder.state==='paused') practiceRecorder.resume(); }
+  function stopPracticeRecordingRaw(){
+    return new Promise(resolve=>{
+      if(!practiceRecorder){ resolve(null); return; }
+      const mimeType = practiceRecorder.mimeType || 'audio/webm';
+      if(practiceRecorder.state === 'inactive'){ resolve(new Blob(practiceChunks, { type: mimeType })); return; }
+      practiceRecorder.onstop = ()=> resolve(new Blob(practiceChunks, { type: mimeType }));
+      practiceRecorder.stop();
+    });
+  }
+  function teardownPracticeStream(){
+    if(practiceStream){ practiceStream.getTracks().forEach(t=>t.stop()); practiceStream = null; }
+    practiceRecorder = null;
+  }
+
+  /* ---- session state ---- */
+  let practiceSections = [];
+  let practiceMeta = { title:'', series:'' };
+  let practiceCurrent = 0;
+  let practiceSermonId = null;
+  let practiceElapsed = 0, practiceRunning = false, practiceIntervalId = null;
+
+  function practiceSermon(id){
+    const s = sermons.find(x=>x.id===id);
+    if(!s) return;
+    finishPractice(); // in case a different sermon was already mid-recording
+    practiceSermonId = id;
+    practiceSections = s.sections.filter(sec => sec.items.length>0 || sec.title);
+    practiceMeta = { title: s.title||'', series: s.series||'' };
+    document.getElementById('practiceSermonInfo').textContent =
+      practiceMeta.series ? `${practiceMeta.series} — ${practiceMeta.title}` : practiceMeta.title;
+    practiceCurrent = 0;
+    practiceElapsed = 0;
+    showView('practice');
+    renderPracticeStage();
+    updatePracticeTimerDisplay();
+  }
+
+  function renderPracticeTrack(){
+    const trackEl = document.getElementById('practiceTrack');
+    trackEl.innerHTML = '';
+    practiceSections.forEach((s,i)=>{
+      const d = document.createElement('div');
+      d.className = 'dot' + (i===practiceCurrent?' active':(i<practiceCurrent?' done':''));
+      d.title = s.title;
+      d.addEventListener('click', ()=>{ practiceCurrent=i; renderPracticeStage(); });
+      trackEl.appendChild(d);
+    });
+  }
+
+  function renderPracticeStage(){
+    const stageEl = document.getElementById('practiceSectionContent');
+    const labelEl = document.getElementById('practiceSectionLabel');
+    const navCounter = document.getElementById('practiceNavCounter');
+    const prevBtn = document.getElementById('practicePrevBtn');
+    const nextBtn = document.getElementById('practiceNextBtn');
+    if(practiceSections.length===0){
+      labelEl.textContent = '';
+      stageEl.innerHTML = `<div class="practice-empty">Nothing to practice yet.<br>Open a sermon from your Library and tap Practice.</div>`;
+      navCounter.textContent=''; prevBtn.disabled=true; nextBtn.disabled=true;
+      document.getElementById('practiceTrack').innerHTML=''; return;
+    }
+    const s = practiceSections[practiceCurrent];
+    labelEl.textContent = `Section ${practiceCurrent+1} of ${practiceSections.length}`;
+    let html = '';
+    if(practiceCurrent === 0 && (practiceMeta.title || practiceMeta.series)){
+      html += `<div class="practice-sermon-cover">`;
+      if(practiceMeta.series) html += `<div class="practice-sermon-cover-series">${escapeHtml(practiceMeta.series)}</div>`;
+      if(practiceMeta.title) html += `<div class="practice-sermon-cover-title">${escapeHtml(practiceMeta.title)}</div>`;
+      html += `</div>`;
+    }
+    html += `<div class="practice-section-title">${escapeHtml(s.title)}</div>`;
+    html += buildStageItemsHtml(s.items);
+    stageEl.innerHTML = html;
+    // Practice-only visual treatment applied after the fact, on Practice's own DOM subtree --
+    // buildStageItemsHtml itself stays note-unaware so Present's identical markup never changes.
+    stageEl.querySelectorAll('.line[data-item-id]').forEach(el=>{
+      el.classList.toggle('has-note', !!noteForItem(practiceSermonId, el.dataset.itemId));
+    });
+    stageEl.scrollTop = 0;
+    navCounter.textContent = `${practiceCurrent+1} / ${practiceSections.length}`;
+    prevBtn.disabled = practiceCurrent===0;
+    nextBtn.disabled = practiceCurrent===practiceSections.length-1;
+    renderPracticeTrack();
+  }
+
+  document.getElementById('practicePrevBtn').addEventListener('click', ()=>{ if(practiceCurrent>0){ practiceCurrent--; renderPracticeStage(); } });
+  document.getElementById('practiceNextBtn').addEventListener('click', ()=>{ if(practiceCurrent<practiceSections.length-1){ practiceCurrent++; renderPracticeStage(); } });
+  document.getElementById('practiceDoneBtn').addEventListener('click', ()=> showView('library'));
+
+  /* ---- count-up timer, tied to the recording (pause/resume together) ---- */
+  function practiceFmt(s){ const m=Math.floor(s/60).toString().padStart(2,'0'); const sec=(s%60).toString().padStart(2,'0'); return m+':'+sec; }
+  function updatePracticeTimerDisplay(){
+    document.getElementById('practiceTimerDisplay').textContent = practiceFmt(practiceElapsed);
+    document.getElementById('practiceTimerDisplay').classList.toggle('running', practiceRunning);
+    document.getElementById('practicePlayBtn').textContent = practiceRunning ? 'Pause' : (practiceElapsed>0 ? 'Resume' : 'Start');
+  }
+
+  async function togglePracticeRun(){
+    if(!practiceSermonId){ showToast('Open a sermon to practice first.'); return; }
+    if(!practiceRunning){
+      if(practiceElapsed===0){
+        const ok = await startPracticeRecording();
+        if(!ok) return;
+      } else {
+        resumePracticeRecording();
+      }
+      practiceRunning = true;
+      practiceIntervalId = setInterval(()=>{ practiceElapsed++; updatePracticeTimerDisplay(); }, 1000);
+    } else {
+      practiceRunning = false;
+      clearInterval(practiceIntervalId);
+      pausePracticeRecording();
+    }
+    updatePracticeTimerDisplay();
+  }
+  document.getElementById('practicePlayBtn').addEventListener('click', togglePracticeRun);
+
+  document.getElementById('practiceDiscardBtn').addEventListener('click', ()=>{
+    practiceRunning = false;
+    clearInterval(practiceIntervalId);
+    teardownPracticeStream();
+    practiceElapsed = 0;
+    updatePracticeTimerDisplay();
+  });
+
+  // Called both by the Finish button and by leaving the Practice view any other way (nav tap,
+  // Home) -- same "don't silently drop work" reasoning as the editor's autosave-on-exit.
+  async function finishPractice(){
+    if(practiceElapsed===0 && !practiceRecorder){ return; }
+    practiceRunning = false;
+    clearInterval(practiceIntervalId);
+    const sermonId = practiceSermonId;
+    const elapsed = practiceElapsed;
+    practiceElapsed = 0;
+    updatePracticeTimerDisplay();
+    try{
+      const blob = await stopPracticeRecordingRaw();
+      teardownPracticeStream();
+      if(blob && blob.size && sermonId){
+        const droppedOldest = await savePracticeTake(sermonId, blob, elapsed);
+        showToast(droppedOldest ? 'Take saved (oldest take removed to stay within the last 3).' : 'Take saved.');
+      }
+    } catch(e){
+      console.error('[practice] failed to save take', e);
+      showToast('Could not save the recording.');
+      teardownPracticeStream();
+    }
+  }
+  document.getElementById('practiceFinishBtn').addEventListener('click', finishPractice);
+
+  /* ---- past takes ---- */
+  const practiceTakesModal = document.getElementById('practiceTakesModal');
+  let practiceTakeUrls = [];
+  function revokePracticeTakeUrls(){ practiceTakeUrls.forEach(u => URL.revokeObjectURL(u)); practiceTakeUrls = []; }
+  async function renderPracticeTakesList(){
+    const list = document.getElementById('practiceTakesList');
+    revokePracticeTakeUrls();
+    if(!practiceSermonId){ list.innerHTML = `<div class="practice-empty-takes">Open a sermon to see its takes.</div>`; return; }
+    let takes = [];
+    try{ takes = await listPracticeTakes(practiceSermonId); }
+    catch(e){ console.error('[practice] failed to load takes', e); }
+    if(!takes.length){ list.innerHTML = `<div class="practice-empty-takes">No practice takes yet for this sermon.</div>`; return; }
+    list.innerHTML = '';
+    takes.forEach(t=>{
+      const url = URL.createObjectURL(t.blob);
+      practiceTakeUrls.push(url);
+      const row = document.createElement('div');
+      row.className = 'practice-take-row';
+      row.innerHTML = `
+        <div class="practice-take-info">
+          <div class="ptr-when">${timeAgo(t.createdAt) || 'just now'}</div>
+          <div class="ptr-dur">${practiceFmt(t.durationSec||0)}</div>
+        </div>
+        <audio controls src="${url}"></audio>
+        <button class="btn icon danger" data-act="delete-take" title="Delete this take">Delete</button>`;
+      row.querySelector('[data-act="delete-take"]').addEventListener('click', async ()=>{
+        const ok = await showConfirm({ title:'Delete this take?', message:'This recording will be permanently removed.', confirmLabel:'Delete' });
+        if(!ok) return;
+        await deletePracticeTake(t.id);
+        renderPracticeTakesList();
+      });
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('practiceTakesBtn').addEventListener('click', ()=>{
+    renderPracticeTakesList();
+    practiceTakesModal.classList.add('open');
+  });
+  document.getElementById('closePracticeTakesModal').addEventListener('click', ()=> practiceTakesModal.classList.remove('open'));
+  practiceTakesModal.addEventListener('click', e=>{ if(e.target === practiceTakesModal) practiceTakesModal.classList.remove('open'); });
+
+  /* ---- practice notes: tap an item on the stage to flag it and jot what needs to change.
+     Text-only (excerpt + note), so unlike audio takes these are small enough for localStorage
+     and don't need a retention cap. Kept device-local like takes -- not wired into the sync
+     engine, since these are rehearsal-review scratch notes, not sermon content. ---- */
+  const PRACTICE_NOTES_KEY = 'shema_practice_notes_v1';
+  let practiceNotes = loadJSON(PRACTICE_NOTES_KEY, []);
+  function persistPracticeNotes(){ saveJSON(PRACTICE_NOTES_KEY, practiceNotes); }
+  function notesForSermon(sermonId){ return practiceNotes.filter(n => n.sermonId === sermonId); }
+  function noteForItem(sermonId, itemId){ return practiceNotes.find(n => n.sermonId===sermonId && n.itemId===itemId); }
+
+  const practiceNoteModal = document.getElementById('practiceNoteModal');
+  let practiceNoteEditingItemId = null, practiceNoteEditingSectionId = null;
+  // Set only when opening the note popup itself pauses a running session, so closing it knows
+  // whether to resume automatically or leave things as the user already had them (e.g. if they
+  // had manually paused before tapping an item, closing the note shouldn't un-pause for them).
+  let practiceAutoPausedForNote = false;
+
+  function openPracticeNoteModal(item, section){
+    practiceNoteEditingItemId = item.id;
+    practiceNoteEditingSectionId = section.id;
+    const existing = noteForItem(practiceSermonId, item.id);
+    document.getElementById('practiceNoteExcerpt').textContent = htmlToPlainText(item.text).slice(0, 140) || '(no text)';
+    document.getElementById('practiceNoteInput').value = existing ? existing.note : '';
+    document.getElementById('practiceNoteDeleteBtn').style.display = existing ? '' : 'none';
+    if(practiceRunning){
+      practiceAutoPausedForNote = true;
+      practiceRunning = false;
+      clearInterval(practiceIntervalId);
+      pausePracticeRecording();
+      updatePracticeTimerDisplay();
+    }
+    practiceNoteModal.classList.add('open');
+    document.getElementById('practiceNoteInput').focus();
+  }
+  function closePracticeNoteModal(){
+    practiceNoteModal.classList.remove('open');
+    if(practiceAutoPausedForNote){
+      practiceAutoPausedForNote = false;
+      resumePracticeRecording();
+      practiceRunning = true;
+      practiceIntervalId = setInterval(()=>{ practiceElapsed++; updatePracticeTimerDisplay(); }, 1000);
+      updatePracticeTimerDisplay();
+    }
+  }
+  document.getElementById('practiceSectionContent').addEventListener('click', e=>{
+    const line = e.target.closest('.line[data-item-id]');
+    if(!line) return;
+    const sec = practiceSections[practiceCurrent];
+    const item = sec && sec.items.find(i=>i.id===line.dataset.itemId);
+    if(item) openPracticeNoteModal(item, sec);
+  });
+  document.getElementById('closePracticeNoteModal').addEventListener('click', closePracticeNoteModal);
+  practiceNoteModal.addEventListener('click', e=>{ if(e.target === practiceNoteModal) closePracticeNoteModal(); });
+  document.getElementById('practiceNoteSaveBtn').addEventListener('click', ()=>{
+    const text = document.getElementById('practiceNoteInput').value.trim();
+    const existing = noteForItem(practiceSermonId, practiceNoteEditingItemId);
+    if(!text){
+      practiceNotes = practiceNotes.filter(n => n !== existing);
+    } else if(existing){
+      existing.note = text; existing.updatedAt = Date.now();
+    } else {
+      const sec = practiceSections.find(s=>s.id===practiceNoteEditingSectionId);
+      const item = sec && sec.items.find(i=>i.id===practiceNoteEditingItemId);
+      practiceNotes.push({
+        id: uid(), sermonId: practiceSermonId, sectionId: practiceNoteEditingSectionId, itemId: practiceNoteEditingItemId,
+        excerpt: item ? htmlToPlainText(item.text).slice(0,140) : '',
+        note: text, createdAt: Date.now(), updatedAt: Date.now()
+      });
+    }
+    persistPracticeNotes();
+    closePracticeNoteModal();
+    renderPracticeStage();
+  });
+  document.getElementById('practiceNoteDeleteBtn').addEventListener('click', ()=>{
+    practiceNotes = practiceNotes.filter(n => !(n.sermonId===practiceSermonId && n.itemId===practiceNoteEditingItemId));
+    persistPracticeNotes();
+    closePracticeNoteModal();
+    renderPracticeStage();
+  });
+
+  /* ---- notes list (review all notes for the sermon, jump to one) ---- */
+  const practiceNotesModal = document.getElementById('practiceNotesModal');
+  function renderPracticeNotesList(){
+    const list = document.getElementById('practiceNotesList');
+    const notes = notesForSermon(practiceSermonId).sort((a,b)=>b.updatedAt-a.updatedAt);
+    if(!notes.length){ list.innerHTML = `<div class="practice-empty-takes">No practice notes yet for this sermon.</div>`; return; }
+    list.innerHTML = '';
+    notes.forEach(n=>{
+      const row = document.createElement('div');
+      row.className = 'practice-take-row';
+      row.innerHTML = `
+        <div class="practice-take-info">
+          <div class="ptr-when">${escapeHtml(n.excerpt || 'Note')}</div>
+          <div class="ptr-dur">${escapeHtml(n.note)}</div>
+        </div>
+        <button class="btn icon" data-act="jump" title="Jump to this section">Go</button>
+        <button class="btn icon danger" data-act="delete-note" title="Delete this note">Delete</button>`;
+      row.querySelector('[data-act="jump"]').addEventListener('click', ()=>{
+        const idx = practiceSections.findIndex(s=>s.id===n.sectionId);
+        if(idx>=0){ practiceCurrent = idx; renderPracticeStage(); }
+        practiceNotesModal.classList.remove('open');
+      });
+      row.querySelector('[data-act="delete-note"]').addEventListener('click', ()=>{
+        practiceNotes = practiceNotes.filter(x=>x.id!==n.id);
+        persistPracticeNotes();
+        renderPracticeNotesList();
+        renderPracticeStage();
+      });
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('practiceNotesBtn').addEventListener('click', ()=>{
+    renderPracticeNotesList();
+    practiceNotesModal.classList.add('open');
+  });
+  document.getElementById('closePracticeNotesModal').addEventListener('click', ()=> practiceNotesModal.classList.remove('open'));
+  practiceNotesModal.addEventListener('click', e=>{ if(e.target === practiceNotesModal) practiceNotesModal.classList.remove('open'); });
+
+  updatePracticeTimerDisplay();
+  renderPracticeStage();
 
   /* ============ SERVICE WORKER ============ */
   // Two separate gaps, both closed here:
@@ -3418,6 +4028,7 @@
     renderBackupStatus();
   });
   document.getElementById('closeSettingsModal').addEventListener('click', ()=> settingsModal.classList.remove('open'));
+  document.getElementById('syncNowBtn').addEventListener('click', manualSyncNow);
   document.getElementById('settingsAccountRow').addEventListener('click', ()=>{
     settingsModal.classList.remove('open');
     accountModal.classList.add('open');
@@ -3431,17 +4042,26 @@
     const signedOutEl = document.getElementById('accountSignedOut');
     const signedInEl = document.getElementById('accountSignedIn');
     const settingsSub = document.getElementById('settingsAccountSub');
+    const syncRow = document.getElementById('settingsSyncRow');
     if(!sb){
+      signedIn = false;
       signedOutEl.style.display = ''; signedInEl.style.display = 'none';
       settingsSub.textContent = 'Not signed in';
+      if(syncRow) syncRow.style.display = 'none';
+      renderBackupStatus();
       return;
     }
     const { data: { session } } = await sb.auth.getSession();
     if(!session || !session.user){
+      signedIn = false;
       signedOutEl.style.display = ''; signedInEl.style.display = 'none';
       settingsSub.textContent = 'Not signed in';
+      if(syncRow) syncRow.style.display = 'none';
+      renderBackupStatus();
       return;
     }
+    signedIn = true;
+    if(syncRow) syncRow.style.display = '';
     signedOutEl.style.display = 'none'; signedInEl.style.display = '';
     // No profiles row yet (table not created, or trigger hasn't fired) reads as "not entitled"
     // rather than erroring -- entitlement flags are only ever written server-side anyway (see
@@ -3457,6 +4077,7 @@
     document.getElementById('acctSyncActive').textContent = syncActive ? 'Active' : 'Not active';
     document.getElementById('acctBillingSection').style.display = (type === 'sync') ? '' : 'none';
     settingsSub.textContent = 'Signed in · ' + type.charAt(0).toUpperCase() + type.slice(1);
+    renderBackupStatus();
   }
 
   document.getElementById('accountGoogleBtn').addEventListener('click', async ()=>{
@@ -3540,22 +4161,67 @@
     } catch(e){ console.error('[sync] illustration image download threw', r.id, e); }
   }
 
+  // Same Storage-object pattern as illustBeforePush/illustAfterPull above, but for images that
+  // ride *inside* a sermon's items (see the illustration-into-sermon insertion) -- those were
+  // still riding as raw base64 inside the sermon's `sections` jsonb, which reintroduces the exact
+  // row-bloat problem the illustrations table was moved off of. The path is keyed by the sermon
+  // item's own id (not the source illustration's), since the same illustration can be inserted
+  // into multiple sermons/items, each needing its own Storage copy so it survives independently
+  // of the original illustration being edited or deleted later.
+  async function sermonBeforePush(s, userId){
+    for(const sec of (s.sections||[])){
+      for(const it of (sec.items||[])){
+        if(!it.imageData) continue;
+        const path = `${userId}/sermon-items/${it.id}.jpg`;
+        if(it.imagePath === path) continue; // already uploaded this exact image, skip re-uploading on every unrelated edit
+        try{
+          const blob = await (await fetch(it.imageData)).blob();
+          const { error } = await sb.storage.from('illustration-images').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+          if(!error) it.imagePath = path;
+          else console.error('[sync] sermon item image upload failed', it.id, error);
+        } catch(e){ console.error('[sync] sermon item image upload threw', it.id, e); }
+      }
+    }
+  }
+  async function sermonAfterPull(local, r){
+    for(const sec of (local.sections||[])){
+      for(const it of (sec.items||[])){
+        if(!it.imagePath || it.imageData) continue;
+        try{
+          const { data, error } = await sb.storage.from('illustration-images').download(it.imagePath);
+          if(!error && data) it.imageData = await blobToDataUrl(data);
+          else if(error) console.error('[sync] sermon item image download failed', it.id, error);
+        } catch(e){ console.error('[sync] sermon item image download threw', it.id, e); }
+      }
+    }
+  }
+
   const SYNC_TABLES = {
     sermons: {
       table: 'sermons',
       list: () => sermons,
       persist: () => saveJSON(STORE_KEY_SERMONS, sermons),
       render: renderLibrary,
+      // sections is mapped rather than sent as-is so any inline illustration image (see
+      // sermonBeforePush) never rides along in the jsonb payload -- only imagePath (the Storage
+      // pointer) does. imageData itself stays local-only, exactly like the illustrations table.
       toRemote: (s, userId) => ({
         id: s.id, user_id: userId, title: s.title||'', series: s.series||'', date: s.date||'',
-        sections: s.sections||[], schema_version: s.schemaVersion||1, device_id: deviceId,
+        sections: (s.sections||[]).map(sec => ({ ...sec, items: (sec.items||[]).map(it => {
+          if(!it.imageData) return it;
+          const { imageData, ...rest } = it;
+          return rest;
+        })})),
+        schema_version: s.schemaVersion||1, device_id: deviceId,
         deleted: !!s.deleted, conflict_of: s.conflictOf || null, updated_at: s.updatedAt||0
       }),
       fromRemote: (r) => normalizeSermon({
         id: r.id, title: r.title||'', series: r.series||'', date: r.date||'',
         sections: r.sections||[], schemaVersion: r.schema_version||1,
         deleted: !!r.deleted, conflictOf: r.conflict_of||undefined, updatedAt: r.updated_at||0
-      })
+      }),
+      beforePush: sermonBeforePush,
+      afterPull: sermonAfterPull
     },
     illustrations: {
       table: 'illustrations',
@@ -3594,6 +4260,9 @@
   let syncInFlight = false;
   let syncQueued = false;
   let syncTimer = null;
+  // Surfaced in the library header and Settings (see renderSyncStatusInto) so a failed pass is
+  // visible to the user, not just to devtools -- { at: <epoch of last completed pass>, ok: bool }.
+  let lastSyncInfo = { at: null, ok: null };
   function scheduleSync(){
     if(!syncEngineReady || !sb) return;
     clearTimeout(syncTimer);
@@ -3606,25 +4275,42 @@
     const { data: { session } } = await sb.auth.getSession();
     if(!session || !session.user) return;
     syncInFlight = true;
+    renderBackupStatus();
+    let allOk = true;
     try{
       for(const key of Object.keys(SYNC_TABLES)){
-        await syncOneTable(SYNC_TABLES[key], session.user.id);
+        const ok = await syncOneTable(SYNC_TABLES[key], session.user.id);
+        if(!ok) allOk = false;
       }
     } catch(e){
       // Best-effort background reconciliation: a failed pass (offline mid-sync, a transient
       // network error) just gets retried on the next scheduled or periodic pass. Local data is
       // never at risk either way, since local storage is never overwritten by a failed sync.
-      // Logged (not surfaced to the user) so a real bug is at least visible in devtools.
+      allOk = false;
       console.error('[sync] pass failed', e);
     } finally {
       syncInFlight = false;
+      lastSyncInfo = { at: Date.now(), ok: allOk };
+      renderBackupStatus();
       if(syncQueued){ syncQueued = false; scheduleSync(); }
     }
   }
 
+  // Manual "Sync Now": bypasses the 2.5s debounce so the user sees an immediate result, but
+  // still rate-limited (5s) so repeated taps can't hammer Supabase or overlap with each other.
+  let lastManualSyncAt = 0;
+  function manualSyncNow(){
+    const now = Date.now();
+    if(now - lastManualSyncAt < 5000) return;
+    lastManualSyncAt = now;
+    clearTimeout(syncTimer);
+    runSync();
+  }
+
   async function syncOneTable(cfg, userId){
     const { data: remoteRows, error } = await sb.from(cfg.table).select('*').eq('user_id', userId);
-    if(error){ console.error('[sync] select failed for', cfg.table, error); return; }
+    if(error){ console.error('[sync] select failed for', cfg.table, error); return false; }
+    let ok = true;
     let changed = false;
     const localList = cfg.list();
     const localById = new Map(localList.map(r=>[r.id, r]));
@@ -3664,10 +4350,11 @@
       if(cfg.beforePush) await cfg.beforePush(r, userId);
       const { error: upErr } = await sb.from(cfg.table).upsert(cfg.toRemote(r, userId));
       if(!upErr) markSynced(cfg.table, r.id, r.updatedAt||0);
-      else console.error('[sync] upsert failed for', cfg.table, r.id, upErr);
+      else { console.error('[sync] upsert failed for', cfg.table, r.id, upErr); ok = false; }
     }
     if(changed){ cfg.persist(); cfg.render(); }
     persistSyncMeta();
+    return ok;
   }
 
   syncEngineReady = true;
