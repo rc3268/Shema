@@ -1043,6 +1043,10 @@
   /* ============ RICH TEXT UTIL ============ */
   // Declared before sermons are loaded/normalized below, since that migration step calls into these.
   function escapeHtml(str){ const d=document.createElement('div'); d.textContent=str==null?'':str; return d.innerHTML; }
+
+  // Shared by the "Keep This" / "Keep Both" conflict-copy resolution actions on sermon and
+  // illustration cards -- strips the "(synced copy)" suffix added when the copy was created.
+  function stripSyncedCopySuffix(title){ return (title||'').replace(/ \(synced copy\)$/,''); }
   function escapeAttr(str){ return escapeHtml(str).replace(/"/g,'&quot;'); }
 
   // Only these inline tags are ever allowed to survive in stored rich text.
@@ -1333,6 +1337,7 @@
     const card = document.createElement('div');
     card.className = 'sermon-card';
     const dateStr = s.date ? new Date(s.date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : '';
+    const conflictOriginal = s.conflictOf ? sermons.find(x=>x.id===s.conflictOf && !x.deleted) : null;
     card.innerHTML = `
       <div class="info">
         <p class="title">${escapeHtml(s.title || 'Untitled Sermon')}</p>
@@ -1341,10 +1346,38 @@
       <div class="actions">
         <button class="btn icon" data-act="present" title="Present">Present</button>
         <button class="btn icon" data-act="edit" title="Edit">Edit</button>
+        ${conflictOriginal ? `<button class="btn icon" data-act="keep-this" title="Make this version the only one, replacing the other">Keep This</button>` : ''}
+        ${s.conflictOf ? `<button class="btn icon" data-act="keep-both" title="Keep both permanently as separate sermons">Keep Both</button>` : ''}
         <button class="btn icon danger" data-act="delete" title="Delete">Delete</button>
       </div>`;
     card.querySelector('[data-act="edit"]').addEventListener('click', ()=> openEditor(s.id));
     card.querySelector('[data-act="present"]').addEventListener('click', ()=> presentSermon(s.id));
+    if(conflictOriginal){
+      card.querySelector('[data-act="keep-this"]').addEventListener('click', async ()=>{
+        const ok = await showConfirm({
+          title: 'Keep this version?',
+          message: `This replaces the other synced version of "${stripSyncedCopySuffix(s.title)||'Untitled Sermon'}" with this one, everywhere it's synced. This can't be undone.`,
+          confirmLabel: 'Keep This', danger: false
+        });
+        if(!ok) return;
+        Object.assign(conflictOriginal, {
+          title: stripSyncedCopySuffix(s.title), series: s.series, date: s.date, sections: s.sections, updatedAt: Date.now()
+        });
+        deleteSermon(s.id);
+        renderLibrary();
+        showToast('Kept this version.');
+      });
+    }
+    if(s.conflictOf){
+      card.querySelector('[data-act="keep-both"]').addEventListener('click', ()=>{
+        delete s.conflictOf;
+        s.title = stripSyncedCopySuffix(s.title);
+        s.updatedAt = Date.now();
+        persistSermons();
+        renderLibrary();
+        showToast('Keeping both versions.');
+      });
+    }
     card.querySelector('[data-act="delete"]').addEventListener('click', async ()=>{
       const ok = await showConfirm({ title:'Delete sermon?', message:`Delete "${s.title||'Untitled Sermon'}"? This can't be undone.`, confirmLabel:'Delete' });
       if(ok){
@@ -1581,11 +1614,14 @@
     templates.filter(t=>!t.deleted).forEach(t=>{
       const c = document.createElement('div');
       c.className = 'tpl-card';
+      const conflictOriginal = t.conflictOf ? templates.find(x=>x.id===t.conflictOf && !x.deleted) : null;
       c.innerHTML = `
         <div class="tpl-card-head">
-          <div class="tname">${escapeHtml(t.name)}</div>
+          <div class="tname">${escapeHtml(t.name)}${t.conflictOf?` <span class="tag conflict-tag" title="Created when this template was edited on two devices before they synced">Synced copy</span>`:''}</div>
           <div class="tpl-card-actions">
             <button class="icon-sm" data-act="edit-tpl" title="Edit this template">Edit</button>
+            ${conflictOriginal ? `<button class="icon-sm" data-act="keep-this" title="Make this version the only one, replacing the other">Keep This</button>` : ''}
+            ${t.conflictOf ? `<button class="icon-sm" data-act="keep-both" title="Keep both permanently as separate templates">Keep Both</button>` : ''}
             <button class="icon-sm" data-act="del-tpl" title="Delete this template"><img class="mono-ic" src="icons/del.png" data-light="icons/del.png" data-dark="icons/del-dark.png" style="height:12px;width:12px;display:block;" alt=""></button>
           </div>
         </div>
@@ -1593,6 +1629,33 @@
       c.querySelector('.tname').addEventListener('click', ()=> useTemplate(t));
       c.querySelector('.tsecs').addEventListener('click', ()=> useTemplate(t));
       c.querySelector('[data-act="edit-tpl"]').addEventListener('click', (e)=>{ e.stopPropagation(); openTemplateEditor(t); });
+      if(conflictOriginal){
+        c.querySelector('[data-act="keep-this"]').addEventListener('click', async (e)=>{
+          e.stopPropagation();
+          const ok = await showConfirm({
+            title: 'Keep this version?',
+            message: `This replaces the other synced version of "${stripSyncedCopySuffix(t.name)}" with this one, everywhere it's synced. This can't be undone.`,
+            confirmLabel: 'Keep This', danger: false
+          });
+          if(!ok) return;
+          Object.assign(conflictOriginal, { name: stripSyncedCopySuffix(t.name), desc: t.desc, sections: t.sections, updatedAt: Date.now() });
+          t.deleted = true; t.updatedAt = Date.now();
+          persistTemplates();
+          renderTemplateList();
+          showToast('Kept this version.');
+        });
+      }
+      if(t.conflictOf){
+        c.querySelector('[data-act="keep-both"]').addEventListener('click', (e)=>{
+          e.stopPropagation();
+          delete t.conflictOf;
+          t.name = stripSyncedCopySuffix(t.name);
+          t.updatedAt = Date.now();
+          persistTemplates();
+          renderTemplateList();
+          showToast('Keeping both versions.');
+        });
+      }
       c.querySelector('[data-act="del-tpl"]').addEventListener('click', async (e)=>{
         e.stopPropagation();
         const ok = await showConfirm({ title:'Delete template?', message:`Delete "${t.name}"? Sermons already created from it are unaffected.`, confirmLabel:'Delete' });
@@ -2787,6 +2850,7 @@
     [...visible].sort((a,b)=>b.updatedAt-a.updatedAt).forEach(ill=>{
       const card = document.createElement('div');
       card.className = 'illust-card';
+      const conflictOriginal = ill.conflictOf ? illustrations.find(x=>x.id===ill.conflictOf && !x.deleted) : null;
       card.innerHTML = `
         ${ill.imageData ? `<img class="illust-thumb" src="${escapeAttr(ill.imageData)}" alt="">` : ''}
         <p class="ititle">${escapeHtml(ill.title||'Untitled')}</p>
@@ -2795,9 +2859,38 @@
         ${usageBadgeHtml(ill)}
         <div class="iactions">
           <button class="btn icon" data-act="edit">Edit</button>
+          ${conflictOriginal ? `<button class="btn icon" data-act="keep-this" title="Make this version the only one, replacing the other">Keep This</button>` : ''}
+          ${ill.conflictOf ? `<button class="btn icon" data-act="keep-both" title="Keep both permanently as separate illustrations">Keep Both</button>` : ''}
           <button class="btn icon danger" data-act="delete">Delete</button>
         </div>`;
       card.querySelector('[data-act="edit"]').addEventListener('click', ()=> openIllustModal(ill.id));
+      if(conflictOriginal){
+        card.querySelector('[data-act="keep-this"]').addEventListener('click', async ()=>{
+          const ok = await showConfirm({
+            title: 'Keep this version?',
+            message: `This replaces the other synced version of "${stripSyncedCopySuffix(ill.title)||'Untitled'}" with this one, everywhere it's synced. This can't be undone.`,
+            confirmLabel: 'Keep This', danger: false
+          });
+          if(!ok) return;
+          Object.assign(conflictOriginal, {
+            title: stripSyncedCopySuffix(ill.title), body: ill.body, tags: ill.tags,
+            imageData: ill.imageData, imagePath: ill.imagePath, updatedAt: Date.now()
+          });
+          deleteIllustration(ill.id);
+          renderIllustrations();
+          showToast('Kept this version.');
+        });
+      }
+      if(ill.conflictOf){
+        card.querySelector('[data-act="keep-both"]').addEventListener('click', ()=>{
+          delete ill.conflictOf;
+          ill.title = stripSyncedCopySuffix(ill.title);
+          ill.updatedAt = Date.now();
+          persistIllust();
+          renderIllustrations();
+          showToast('Keeping both versions.');
+        });
+      }
       card.querySelector('[data-act="delete"]').addEventListener('click', async ()=>{
         const ok = await showConfirm({ title:'Delete illustration?', message:`Delete "${ill.title||'Untitled'}"? This can't be undone.`, confirmLabel:'Delete' });
         if(ok){
