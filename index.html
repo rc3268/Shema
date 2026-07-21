@@ -4158,10 +4158,11 @@
   const APP_BUNDLE_ID = 'com.shema.app';
   // Public API keys -- same "meant to be public" category as the Supabase anon key above; the
   // real protection is server-side receipt validation (the webhook), not hiding these strings.
-  // Empty until the RevenueCat project actually exists -- every call below checks rcReady first
-  // and shows a clear toast instead of throwing against an unconfigured SDK.
+  // iOS stays empty until the Apple Developer Program membership exists (App Store Connect
+  // access is required even to generate the RevenueCat app's iOS side) -- every call below
+  // checks rcReady first and shows a clear toast instead of throwing against an unconfigured SDK.
   const REVENUECAT_API_KEY_IOS = '';
-  const REVENUECAT_API_KEY_ANDROID = '';
+  const REVENUECAT_API_KEY_ANDROID = 'goog_RObXSjsSebckbvbDYNUbqNIMREh';
   const isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   let rcReady = false;
 
