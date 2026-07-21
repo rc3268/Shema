@@ -46,7 +46,6 @@ Deno.test('unit: looksLikeSupabaseUserId', () => {
 Deno.test('unit: isEntitlementActive', () => {
   const future = new Date(Date.now() + 86400000).toISOString();
   const past = new Date(Date.now() - 86400000).toISOString();
-  assertEquals(isEntitlementActive({ entitlements: { owns_app: { expires_date: null } } }, 'owns_app'), true);
   assertEquals(isEntitlementActive({ entitlements: { sync: { expires_date: future } } }, 'sync'), true);
   assertEquals(isEntitlementActive({ entitlements: { sync: { expires_date: past } } }, 'sync'), false);
   assertEquals(isEntitlementActive({ entitlements: {} }, 'sync'), false);
@@ -62,7 +61,7 @@ Deno.test('acks TEST events without doing anything', async () => {
   assertEquals(res.status, 200);
 });
 
-Deno.test('skips the Supabase write for an anonymous (local-only) purchase', async () => {
+Deno.test('skips the Supabase write for a non-Supabase (anonymous) app_user_id', async () => {
   const captured: any[] = [];
   globalThis.fetch = mockFetch({}, captured);
   const res = await handleWebhook(req({ event: { type: 'INITIAL_PURCHASE', app_user_id: ANON_ID } }));
@@ -70,24 +69,23 @@ Deno.test('skips the Supabase write for an anonymous (local-only) purchase', asy
   assertEquals(captured.length, 0);
 });
 
-Deno.test('a real user unlocking the app writes owns_app=true, sync=false', async () => {
+Deno.test('a real user starting sync writes sync_subscription_active=true', async () => {
   const captured: any[] = [];
-  globalThis.fetch = mockFetch({ owns_app: { expires_date: null } }, captured);
+  const future = new Date(Date.now() + 86400000).toISOString();
+  globalThis.fetch = mockFetch({ sync: { expires_date: future } }, captured);
   const res = await handleWebhook(req({ event: { type: 'INITIAL_PURCHASE', app_user_id: REAL_USER_ID } }));
   assertEquals(res.status, 200);
   assertEquals(captured.length, 1);
-  assertEquals(captured[0].body.owns_app, true);
-  assertEquals(captured[0].body.sync_subscription_active, false);
+  assertEquals(captured[0].body.sync_subscription_active, true);
   assertEquals(captured[0].body.id, REAL_USER_ID);
 });
 
 Deno.test('an expired sync subscription writes sync_subscription_active=false', async () => {
   const captured: any[] = [];
   const past = new Date(Date.now() - 86400000).toISOString();
-  globalThis.fetch = mockFetch({ owns_app: { expires_date: null }, sync: { expires_date: past } }, captured);
+  globalThis.fetch = mockFetch({ sync: { expires_date: past } }, captured);
   const res = await handleWebhook(req({ event: { type: 'EXPIRATION', app_user_id: REAL_USER_ID } }));
   assertEquals(res.status, 200);
-  assertEquals(captured[0].body.owns_app, true);
   assertEquals(captured[0].body.sync_subscription_active, false);
 });
 
