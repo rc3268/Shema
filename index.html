@@ -1442,18 +1442,24 @@
   // Deletes are tombstones, not row removal: a future sync pass needs to be able to tell
   // "this was removed" apart from "this device never saw it," so the record stays around
   // (hidden from every list) with deleted:true rather than being spliced out.
+  // A record that has never successfully synced has no remote row to resurrect on a future pull,
+  // so it's safe (and necessary) to remove it outright rather than tombstone it -- a tombstone
+  // still carries the same sections/fields that made it un-pushable in the first place (e.g. a
+  // malformed record merged in from an old backup restore), so it would just keep failing to
+  // sync forever. Tombstoning stays the right move for anything already synced, matching the
+  // template-deletion fix (see context.md) that reversed plain array-removal for the same reason.
   function deleteSermon(id){
     const s = sermons.find(x=>x.id===id);
     if(!s) return;
-    s.deleted = true;
-    s.updatedAt = Date.now();
+    if(!syncedAt('sermons', id)){ sermons = sermons.filter(x=>x.id!==id); }
+    else { s.deleted = true; s.updatedAt = Date.now(); }
     persistSermons();
   }
   function deleteIllustration(id){
     const ill = illustrations.find(x=>x.id===id);
     if(!ill) return;
-    ill.deleted = true;
-    ill.updatedAt = Date.now();
+    if(!syncedAt('illustrations', id)){ illustrations = illustrations.filter(x=>x.id!==id); }
+    else { ill.deleted = true; ill.updatedAt = Date.now(); }
     persistIllust();
   }
 
@@ -1496,7 +1502,16 @@
   }
   function normalizeSermon(s){
     if(!s.schemaVersion) s.schemaVersion = 1;
-    (s.sections||[]).forEach(sec => { (sec.items||[]).forEach(normalizeItem); });
+    // A restored backup can come from a very old build whose export shape doesn't match this
+    // one -- if `sections` (or a section's `items`) isn't actually an array, coercing to empty
+    // here means the sermon loses that stray content but the app (and everything else in it)
+    // keeps working, instead of a `.forEach` on a non-array throwing and taking the whole load
+    // down with it.
+    if(!Array.isArray(s.sections)) s.sections = [];
+    s.sections.forEach(sec => {
+      if(!Array.isArray(sec.items)) sec.items = [];
+      sec.items.forEach(normalizeItem);
+    });
     return s;
   }
   function normalizeIllustration(ill){
@@ -4630,43 +4645,53 @@
     let changed = false;
     const localList = cfg.list();
     const localById = new Map(localList.map(r=>[r.id, r]));
+    // Each record is isolated in its own try/catch below -- one malformed record (e.g. something
+    // merged in from a very old backup restore, missing/odd-shaped fields a current export would
+    // never produce) must not throw and abort the whole pass. Before this, a single bad record
+    // threw all the way up to runSync's catch, which skipped every *other* record and table too,
+    // and since the bad record is never marked synced, it does this again on every future pass --
+    // permanently wedging sync over one record instead of just failing to sync that one record.
     for(const r of (remoteRows||[])){
-      let local = localById.get(r.id);
-      const lastSynced = syncedAt(cfg.table, r.id);
-      if(!local){
-        local = cfg.fromRemote(r);
-        localList.push(local);
-        markSynced(cfg.table, r.id, r.updated_at||0);
-        changed = true;
-      } else {
-        const localChanged = (local.updatedAt||0) > lastSynced;
-        const remoteChanged = (r.updated_at||0) > lastSynced;
-        if(remoteChanged && localChanged){
-          const loserCopy = JSON.parse(JSON.stringify(local));
-          loserCopy.id = uid();
-          loserCopy.conflictOf = r.id;
-          loserCopy.title = (loserCopy.title || 'Untitled') + ' (synced copy)';
-          loserCopy.updatedAt = Date.now();
-          localList.push(loserCopy);
-          Object.assign(local, cfg.fromRemote(r));
+      try{
+        let local = localById.get(r.id);
+        const lastSynced = syncedAt(cfg.table, r.id);
+        if(!local){
+          local = cfg.fromRemote(r);
+          localList.push(local);
           markSynced(cfg.table, r.id, r.updated_at||0);
           changed = true;
-        } else if(remoteChanged && !localChanged){
-          Object.assign(local, cfg.fromRemote(r));
-          markSynced(cfg.table, r.id, r.updated_at||0);
-          changed = true;
+        } else {
+          const localChanged = (local.updatedAt||0) > lastSynced;
+          const remoteChanged = (r.updated_at||0) > lastSynced;
+          if(remoteChanged && localChanged){
+            const loserCopy = JSON.parse(JSON.stringify(local));
+            loserCopy.id = uid();
+            loserCopy.conflictOf = r.id;
+            loserCopy.title = (loserCopy.title || 'Untitled') + ' (synced copy)';
+            loserCopy.updatedAt = Date.now();
+            localList.push(loserCopy);
+            Object.assign(local, cfg.fromRemote(r));
+            markSynced(cfg.table, r.id, r.updated_at||0);
+            changed = true;
+          } else if(remoteChanged && !localChanged){
+            Object.assign(local, cfg.fromRemote(r));
+            markSynced(cfg.table, r.id, r.updated_at||0);
+            changed = true;
+          }
+          // else: remote unchanged here since the last sync -- if local is newer, the push loop
+          // below will catch it; nothing to reconcile in this pull pass.
         }
-        // else: remote unchanged here since the last sync -- if local is newer, the push loop
-        // below will catch it; nothing to reconcile in this pull pass.
-      }
-      if(cfg.afterPull) await cfg.afterPull(local, r);
+        if(cfg.afterPull) await cfg.afterPull(local, r);
+      } catch(e){ console.error('[sync] pull failed for', cfg.table, r.id, e); ok = false; }
     }
     const toPush = localList.filter(r => (r.updatedAt||0) > syncedAt(cfg.table, r.id));
     for(const r of toPush){
-      if(cfg.beforePush) await cfg.beforePush(r, userId);
-      const { error: upErr } = await sb.from(cfg.table).upsert(cfg.toRemote(r, userId));
-      if(!upErr) markSynced(cfg.table, r.id, r.updatedAt||0);
-      else { console.error('[sync] upsert failed for', cfg.table, r.id, upErr); ok = false; }
+      try{
+        if(cfg.beforePush) await cfg.beforePush(r, userId);
+        const { error: upErr } = await sb.from(cfg.table).upsert(cfg.toRemote(r, userId));
+        if(!upErr) markSynced(cfg.table, r.id, r.updatedAt||0);
+        else { console.error('[sync] upsert failed for', cfg.table, r.id, upErr); ok = false; }
+      } catch(e){ console.error('[sync] push threw for', cfg.table, r.id, e); ok = false; }
     }
     if(changed){ cfg.persist(); cfg.render(); }
     persistSyncMeta();
