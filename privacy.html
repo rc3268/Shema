@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Shema</title>
+<style>
+  :root{
+    --forest:#1F3A34; --cream:#F3F1EA; --cream-2:#eae5d6; --gold-dim:#a3835a;
+    --ink:#1A1A1A; --muted:#5C6F62; --line:#ddd6c7;
+    --bg:var(--cream); --text:var(--ink); --panel:#ffffff;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f251f; --text:var(--cream); --panel:#16302a; --line:#34544a; --muted:#8fa093; }
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; line-height:1.65; }
+  .wrap{ max-width:720px; margin:0 auto; padding:56px 24px 96px; }
+  a{ color:var(--gold-dim); }
+  .back{ display:inline-block; margin-bottom:28px; font-size:14px; text-decoration:none; }
+  h1{ font-family:Georgia,'Times New Roman',serif; font-size:32px; margin:0 0 6px; color:var(--text); }
+  .updated{ font-size:13px; color:var(--muted); margin:0 0 40px; }
+  h2{ font-family:Georgia,'Times New Roman',serif; font-size:20px; margin:36px 0 10px; color:var(--text); }
+  p, li{ font-size:15px; color:var(--text); }
+  ul{ padding-left:22px; }
+  .note{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; font-size:13.5px; color:var(--muted); margin:16px 0; }
+  .placeholder{ color:#b23b3b; font-weight:600; }
+  footer{ margin-top:56px; padding-top:20px; border-top:1px solid var(--line); font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./">&larr; Back to Shema</a>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: July 21, 2026</p>
+
+  <p>This policy explains what information Shema ("the app," "we," "us") collects, how it's used, and who it's shared with. Shema is built to work fully offline on a single device with no account at all — an account is only needed if you want your sermons, illustrations, and templates available on more than one device (the Sync subscription).</p>
+
+  <h2>Information we collect</h2>
+  <p><strong>If you never create an account:</strong> we collect nothing. Your sermons, illustrations, templates, and practice recordings are stored only in the app's local storage on your device and never transmitted anywhere.</p>
+  <p><strong>If you create an account (sign in with Google or an email link):</strong></p>
+  <ul>
+    <li><strong>Account information</strong> — your email address and a unique account identifier, managed by our authentication provider, Supabase.</li>
+    <li><strong>Your content</strong> — sermon text, illustrations (including any images you attach), and templates you create. This syncs to our servers (Supabase's database and file storage) so it's available on your other signed-in devices, in addition to staying on each device locally.</li>
+    <li><strong>Purchase and subscription status</strong> — whether your Sync subscription is currently active, and its renewal date. This comes from Apple's App Store or Google Play through our subscription-management provider, RevenueCat. We never see or store your payment card number — all payment processing happens inside Apple's or Google's own systems.</li>
+  </ul>
+  <p><strong>Practice recordings are never uploaded, ever.</strong> Audio you record in Practice Mode is stored only in your device's local storage (IndexedDB) and is not part of sync, regardless of whether you have an account — this is a deliberate design choice, not a current limitation.</p>
+  <p>We do not use advertising networks, analytics SDKs, or third-party trackers of any kind. Our web pages (this one and the app's marketing/sign-in page) are hosted on GitHub Pages, which — like any web host — logs basic technical request data (such as IP address and browser type) for security and abuse prevention; we do not have a separate analytics layer on top of that.</p>
+
+  <h2>How we use this information</h2>
+  <ul>
+    <li>To provide the core function of the app — storing and syncing your sermon content across your devices.</li>
+    <li>To authenticate you and maintain your account.</li>
+    <li>To verify your subscription status so we know whether to enable cross-device sync and web access.</li>
+    <li>To respond if you contact us for support.</li>
+  </ul>
+  <p>We do not use your content to train any model, and we do not read your sermons for any purpose other than storing and syncing them at your direction.</p>
+
+  <h2>Who we share information with</h2>
+  <p>We don't sell your personal information. A small number of service providers process data on our behalf, solely to run the app:</p>
+  <ul>
+    <li><strong>Supabase</strong> — hosts our database, authentication, and file storage.</li>
+    <li><strong>RevenueCat</strong> — manages subscription status across Apple's and Google's billing systems.</li>
+    <li><strong>Apple / Google</strong> — process all in-app purchases and subscription billing directly; we receive only subscription status, never payment details.</li>
+  </ul>
+
+  <h2>Data retention</h2>
+  <p>Content stored only on your device stays there until you delete it or uninstall the app. Synced content and account information are kept for as long as your account exists. To request deletion of your account and associated synced data, contact us at the address below — a fully self-service "Delete Account" option is planned but not yet available.</p>
+
+  <h2>Security</h2>
+  <p>Data in transit between the app and our servers is encrypted (HTTPS/TLS). Synced content in our database is restricted so that only your own signed-in account can read or write it (database-level row security), and fields like subscription status can only ever be written by our own server-side systems — never directly by any signed-in user, including you.</p>
+
+  <h2>Children's privacy</h2>
+  <p>Shema is not directed at children, and we do not knowingly collect information from anyone under 13. If you believe a child has created an account, contact us and we'll delete it.</p>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li>You can use the full app with no account and no data ever leaving your device.</li>
+    <li>You can export a full backup of your sermons, illustrations, and templates at any time from Settings, on any account type.</li>
+    <li>You can sign out or delete your account at any time (see "Data retention" above for how to request account deletion today).</li>
+    <li>You can manage or cancel your Sync subscription at any time through your Apple or Google account's subscription settings.</li>
+  </ul>
+
+  <h2>Changes to this policy</h2>
+  <p>If we make material changes to this policy, we'll update the date at the top of this page and, where appropriate, notify you inside the app.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy or your data: <span class="placeholder">[YOUR SUPPORT EMAIL]</span></p>
+
+  <div class="note">This page is a draft prepared for review before publishing. The bracketed field above needs a real contact address before this goes live, and it should also line up with the answers given in Apple's App Store privacy "nutrition label" and Google Play's Data safety form when those are completed.</div>
+
+  <footer>Shema — Privacy Policy</footer>
+</div>
+</body>
+</html>
