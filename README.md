@@ -44,6 +44,10 @@ Backup/restore is manual today: `Backup` in the Library view exports a JSON file
 
 `ios/` and `android/` are a [Capacitor](https://capacitorjs.com) shell around the same static app, added for App Store/Play Store distribution — they don't change how the web/PWA build works or is served. `npm run build` copies `index.html`/`sw.js`/`manifest.json`/`data/`/`icons/`/`vendor/` verbatim into `www/` (gitignored, regenerate any time from `scripts/build-www.js` — it's a plain file copy, not a bundler), and `npm run sync` runs that plus `npx cap sync` to push it into both native projects. Building/running the native apps themselves needs Xcode (iOS) or Android Studio (Android) on the developer's own machine.
 
+## Billing (RevenueCat) and the entitlement webhook
+
+`supabase/functions/revenuecat-webhook/` is a Deno Edge Function — the only thing allowed to write `profiles.owns_app`/`sync_subscription_active` (see `context.md`'s RLS design). Test it with `deno test --allow-net --allow-env --node-modules-dir=false supabase/functions/revenuecat-webhook/index.test.ts` (no real RevenueCat/Supabase project needed — `fetch` is mocked). Deploying it, and the RevenueCat project it depends on, are manual steps not done from this repo — see the Phase 4 History entry in `context.md` for exactly what's left.
+
 ## Git workflow
 
 Development happens on a feature branch (currently `claude/app-store-paid-launch-1jkhur`); the repo owner reviews and merges into `main` themselves. Don't push directly to `main`.

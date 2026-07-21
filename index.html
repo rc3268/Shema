@@ -1078,6 +1078,14 @@
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Account</h2><button class="btn icon" id="closeAccountModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll">
+      <!-- The one-time unlock is a per-device App Store/Play Store purchase, not a Supabase
+           account thing -- it has to work whether or not you've ever signed in (see context.md
+           business model: "no account" is a permanent option, not a crippled trial). Shown above
+           the sign-in split for that reason; sync, below, is inherently account-bound instead. -->
+      <div class="account-section" id="acctUnlockSection">
+        <div class="account-row"><span>Full unlock</span><strong id="acctUnlockStatus">—</strong></div>
+        <button class="btn gold" id="acctUnlockBtn" style="width:100%; margin-top:10px; display:none;">Unlock the full app</button>
+      </div>
       <div id="accountSignedOut">
         <p style="color:var(--muted); font-size:13px; line-height:1.5; margin:0 0 16px;">
           Shema works fully offline with no account. Sign in only if you want the same sermon
@@ -1098,9 +1106,9 @@
         <p id="accountEmailDisplay" style="font-weight:700; margin:0 0 18px;"></p>
 
         <div class="account-section">
-          <div class="account-row"><span>Full unlock</span><strong id="acctOwnsApp"></strong></div>
           <div class="account-row"><span>Cross-device sync</span><strong id="acctSyncActive"></strong></div>
         </div>
+        <button class="btn gold" id="acctSyncBtn" style="width:100%; margin-bottom:10px; display:none;">Start Sync</button>
 
         <div class="account-section" id="acctBillingSection" style="display:none;">
           <div class="account-row"><span>Next billing date</span><strong>—</strong></div>
@@ -1134,6 +1142,16 @@
 <!-- Self-hosted, not CDN-loaded -- same zero-runtime-CDN-dependency convention as the fonts,
      so the app still loads offline even though signing in obviously still needs a network. -->
 <script src="vendor/supabase.js"></script>
+<!-- RevenueCat's Capacitor plugin only ever does anything inside the native iOS/Android shell --
+     App Store/Play Store billing doesn't exist on the web, so there's nothing for it to do there.
+     window.Capacitor is injected by that native runtime before this script block runs, so this
+     stays a zero-extra-download no-op for every ordinary web/PWA visit (this file is deliberately
+     NOT in sw.js's precache list for the same reason). -->
+<script>
+  if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+    document.write('<script src="vendor/purchases-capacitor.js"><\/script>');
+  }
+</script>
 <script>
 (function(){
   /* ============ STORAGE ============ */
@@ -4057,6 +4075,74 @@
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 
+  /* ============ REVENUECAT (Phase 4 billing) ============
+     Nothing here gates any existing feature -- exactly like the entitlement display it feeds,
+     this is purely additive plumbing (see context.md: whether Shema ends up sold as a paid-up-
+     front store listing or a free download with an in-app unlock is still an open pricing
+     decision, not something to lock in by writing a paywall check). Two entitlements, matching
+     the two Postgres flags: RC_ENTITLEMENT_UNLOCK (one-time, works with no account at all -- a
+     local purchase is checked on-device via RevenueCat's own SDK, independent of Supabase) and
+     RC_ENTITLEMENT_SYNC (subscription, inherently account-bound since sync needs an identity to
+     attach cloud data to). Convention: an Offering in the RevenueCat dashboard named identically
+     to each entitlement id, holding that entitlement's one package. */
+  const RC_ENTITLEMENT_UNLOCK = 'owns_app';
+  const RC_ENTITLEMENT_SYNC = 'sync';
+  const APP_BUNDLE_ID = 'com.shema.app';
+  // Public API keys -- same "meant to be public" category as the Supabase anon key above; the
+  // real protection is server-side receipt validation (the webhook), not hiding these strings.
+  // Empty until the RevenueCat project actually exists -- every call below checks rcReady first
+  // and shows a clear toast instead of throwing against an unconfigured SDK.
+  const REVENUECAT_API_KEY_IOS = '';
+  const REVENUECAT_API_KEY_ANDROID = '';
+  const isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  let rcReady = false;
+
+  async function initRevenueCat(){
+    if(!isNativeApp || typeof window.RevenueCatPurchases === 'undefined') return;
+    const apiKey = window.Capacitor.getPlatform() === 'ios' ? REVENUECAT_API_KEY_IOS : REVENUECAT_API_KEY_ANDROID;
+    if(!apiKey) return; // not configured yet -- see context.md Phase 4
+    try{ await window.RevenueCatPurchases.configure({ apiKey }); rcReady = true; }
+    catch(e){ console.error('[revenuecat] configure failed', e); }
+  }
+  initRevenueCat();
+
+  // Keeps RevenueCat's purchase identity aligned with whichever Supabase account (if any) is
+  // signed in, so a purchase made while signed in is recognized on a second device too -- entirely
+  // separate from the always-available anonymous identity a signed-out purchase uses instead.
+  async function syncRevenueCatIdentity(userId){
+    if(!rcReady) return;
+    try{ userId ? await window.RevenueCatPurchases.logIn({ appUserID: userId }) : await window.RevenueCatPurchases.logOut(); }
+    catch(e){ console.error('[revenuecat] identity sync failed', e); }
+  }
+
+  async function getLocalEntitlement(entitlementId){
+    if(!rcReady) return false;
+    try{
+      const { customerInfo } = await window.RevenueCatPurchases.getCustomerInfo();
+      return !!(customerInfo.entitlements.active && customerInfo.entitlements.active[entitlementId]);
+    } catch(e){ console.error('[revenuecat] getCustomerInfo failed', e); return false; }
+  }
+
+  async function purchaseEntitlement(entitlementId, btn, label){
+    if(!isNativeApp){ showToast(`${label} needs the App Store/Play Store app -- not available on the web.`); return; }
+    if(!rcReady){ showToast("Store billing isn't configured yet.", {danger:true}); return; }
+    btn.disabled = true;
+    try{
+      const offerings = await window.RevenueCatPurchases.getOfferings();
+      const offering = (offerings.all && offerings.all[entitlementId]) || offerings.current;
+      const pkg = offering && offering.availablePackages && offering.availablePackages[0];
+      if(!pkg){ showToast('Nothing available to purchase yet.', {danger:true}); return; }
+      await window.RevenueCatPurchases.purchasePackage({ aPackage: pkg });
+      showToast(`${label} complete -- thank you!`);
+      await refreshAccountState();
+    } catch(e){
+      if(!e || e.code !== 'PurchaseCancelledError'){ console.error('[revenuecat] purchase failed', e); showToast("That purchase didn't go through.", {danger:true}); }
+    } finally { btn.disabled = false; }
+  }
+
+  document.getElementById('acctUnlockBtn').addEventListener('click', (e)=> purchaseEntitlement(RC_ENTITLEMENT_UNLOCK, e.target, 'Unlock'));
+  document.getElementById('acctSyncBtn').addEventListener('click', (e)=> purchaseEntitlement(RC_ENTITLEMENT_SYNC, e.target, 'Sync subscription'));
+
   // Purely a display label -- the app has no real dev-only powers gated behind this yet, so
   // there's nothing to actually secure. Anyone else signed in just never sees "Dev" anywhere,
   // since this only ever matches this one address.
@@ -4093,15 +4179,26 @@
     const signedInEl = document.getElementById('accountSignedIn');
     const settingsSub = document.getElementById('settingsAccountSub');
     const syncRow = document.getElementById('settingsSyncRow');
-    if(!sb){
-      signedIn = false;
-      signedOutEl.style.display = ''; signedInEl.style.display = 'none';
-      settingsSub.textContent = 'Not signed in';
-      if(syncRow) syncRow.style.display = 'none';
-      renderBackupStatus();
-      return;
+
+    let session = null;
+    if(sb){ const { data } = await sb.auth.getSession(); session = data.session; }
+    await syncRevenueCatIdentity(session && session.user ? session.user.id : null);
+
+    // Unlock status: a signed-in account's Supabase profile flag (so a purchase follows you to a
+    // second device/platform) OR this device's own local purchase (so it works with no account
+    // at all) -- whichever says yes, wins. No profiles row yet (table not created, or the
+    // trigger hasn't fired) reads as "not entitled" rather than erroring -- entitlement flags are
+    // only ever written server-side anyway (see the RLS policy), so that's just "hasn't bought it".
+    let profile = null;
+    if(session && session.user){
+      const { data } = await sb.from('profiles')
+        .select('owns_app, sync_subscription_active').eq('id', session.user.id).maybeSingle();
+      profile = data;
     }
-    const { data: { session } } = await sb.auth.getSession();
+    const ownsApp = (profile ? profile.owns_app : false) || await getLocalEntitlement(RC_ENTITLEMENT_UNLOCK);
+    document.getElementById('acctUnlockStatus').textContent = ownsApp ? 'Unlocked' : 'Not yet';
+    document.getElementById('acctUnlockBtn').style.display = ownsApp ? 'none' : '';
+
     if(!session || !session.user){
       signedIn = false;
       signedOutEl.style.display = ''; signedInEl.style.display = 'none';
@@ -4113,18 +4210,12 @@
     signedIn = true;
     if(syncRow) syncRow.style.display = '';
     signedOutEl.style.display = 'none'; signedInEl.style.display = '';
-    // No profiles row yet (table not created, or trigger hasn't fired) reads as "not entitled"
-    // rather than erroring -- entitlement flags are only ever written server-side anyway (see
-    // the RLS policy), so a signed-in user with no row is just a user who hasn't purchased yet.
-    const { data: profile } = await sb.from('profiles')
-      .select('owns_app, sync_subscription_active').eq('id', session.user.id).maybeSingle();
-    const ownsApp = profile ? profile.owns_app : false;
     const syncActive = profile ? profile.sync_subscription_active : false;
     const type = computeAccountType(session, profile);
     document.getElementById('accountEmailDisplay').textContent = session.user.email || session.user.id;
     document.getElementById('accountTypeBadge').textContent = type.toUpperCase();
-    document.getElementById('acctOwnsApp').textContent = ownsApp ? 'Yes' : 'Not yet';
     document.getElementById('acctSyncActive').textContent = syncActive ? 'Active' : 'Not active';
+    document.getElementById('acctSyncBtn').style.display = syncActive ? 'none' : '';
     document.getElementById('acctBillingSection').style.display = (type === 'sync') ? '' : 'none';
     settingsSub.textContent = 'Signed in · ' + type.charAt(0).toUpperCase() + type.slice(1);
     renderBackupStatus();
@@ -4159,14 +4250,24 @@
     refreshAccountState();
   });
 
-  // Real subscription management needs Phase 4 (RevenueCat / StoreKit / Play Billing) -- these
-  // are visible now so the screen reads as complete, but they're honest placeholders, not
-  // broken buttons pretending to work.
+  // Neither the App Store nor Play Store SDK gives a "show the manage-subscription sheet" call
+  // through this plugin -- the standard fallback (what most apps actually do) is deep-linking to
+  // the store's own subscription management page.
   document.getElementById('acctManageSubBtn').addEventListener('click', ()=>{
-    showToast('Subscription management needs the store billing integration (Phase 4) -- not wired up yet.');
+    if(!isNativeApp){ showToast('Subscription management needs the App Store/Play Store app -- not available on the web.'); return; }
+    const url = window.Capacitor.getPlatform() === 'ios'
+      ? 'https://apps.apple.com/account/subscriptions'
+      : `https://play.google.com/store/account/subscriptions?package=${encodeURIComponent(APP_BUNDLE_ID)}`;
+    window.open(url, '_blank');
   });
-  document.getElementById('acctRestorePurchasesBtn').addEventListener('click', ()=>{
-    showToast('Restore Purchases needs the store billing integration (Phase 4) -- not wired up yet.');
+  document.getElementById('acctRestorePurchasesBtn').addEventListener('click', async ()=>{
+    if(!isNativeApp){ showToast('Restore Purchases needs the App Store/Play Store app -- not available on the web.'); return; }
+    if(!rcReady){ showToast("Store billing isn't configured yet.", {danger:true}); return; }
+    try{
+      await window.RevenueCatPurchases.restorePurchases();
+      showToast('Restored. If anything changed, it may take a moment to show here.');
+      await refreshAccountState();
+    } catch(e){ console.error('[revenuecat] restore failed', e); showToast("Couldn't restore purchases.", {danger:true}); }
   });
   document.getElementById('acctDeleteBtn').addEventListener('click', ()=>{
     showToast("Account deletion isn't available yet -- it needs a backend function we haven't built.", {danger:true});
