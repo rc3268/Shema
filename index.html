@@ -228,7 +228,13 @@
   .modal-overlay.drawer-right .modal-sheet{
     width:min(400px,92vw); height:100%; max-height:none;
     border-radius:0; box-shadow:-8px 0 28px rgba(0,0,0,.28);
-    transform:translateX(100%); transition:transform .25s ease;
+    /* translateX(100%) alone leaves the sheet's left edge sitting exactly flush with the
+       viewport's right edge while "closed" -- that's the sheet itself fully offscreen, but
+       box-shadow isn't clipped by an element's own transform, so its blur (up to ~36px past
+       that edge) was bleeding back into the visible page as a permanent dark strip along the
+       right side of every screen, all six drawer-right modals stacking the same effect. The
+       extra 40px pushes the shadow itself offscreen too, not just the sheet. */
+    transform:translateX(calc(100% + 40px)); transition:transform .25s ease;
     padding-top:env(safe-area-inset-top);
   }
   .modal-overlay.drawer-right.open .modal-sheet{ transform:translateX(0); }
