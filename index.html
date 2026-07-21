@@ -4690,6 +4690,25 @@
         if(cfg.beforePush) await cfg.beforePush(r, userId);
         const { error: upErr } = await sb.from(cfg.table).upsert(cfg.toRemote(r, userId));
         if(!upErr) markSynced(cfg.table, r.id, r.updatedAt||0);
+        else if(upErr.code === '42501' && !syncedAt(cfg.table, r.id)){
+          // Postgres code 42501 on an upsert means RLS rejected it because a row with this exact
+          // id already exists under a *different* user_id -- likely a pre-crypto.randomUUID id
+          // (a low-entropy Date.now()+Math.random() fallback, from before a secure context was
+          // guaranteed) colliding with an unrelated row from earlier testing. This is correct,
+          // intentional RLS behavior, not a bug -- Postgres is rightly refusing to let this
+          // account overwrite a row it doesn't own. Since this record has never itself synced
+          // (checked above), there's no remote counterpart of its own to reconcile with, so the
+          // safe recovery is to give it a fresh id and let the next pass insert it as a brand new
+          // row under this id instead of retrying the same doomed update forever.
+          const oldId = r.id;
+          r.id = uid();
+          if(cfg.table === 'sermons'){
+            notesForSermon(oldId).forEach(n => n.sermonId = r.id);
+            persistPracticeNotes();
+          }
+          changed = true;
+          console.error('[sync] id collision for', cfg.table, oldId, '-- reassigned to', r.id);
+        }
         else { console.error('[sync] upsert failed for', cfg.table, r.id, upErr); ok = false; }
       } catch(e){ console.error('[sync] push threw for', cfg.table, r.id, e); ok = false; }
     }
