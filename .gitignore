@@ -4,3 +4,8 @@ Thumbs.db
 .env
 .env.*
 node_modules/
+
+# Capacitor build output -- regenerate with `npm run build` (see scripts/build-www.js).
+# The web app's real source stays index.html/sw.js/manifest.json/etc. at the repo root;
+# this is just those same files copied into the shape Capacitor's native shells expect.
+www/

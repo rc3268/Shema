@@ -40,6 +40,10 @@ Sermons and illustrations both carry `id` (UUIDv4), `updatedAt`, `schemaVersion`
 
 Backup/restore is manual today: `Backup` in the Library view exports a JSON file of everything; importing merges it back in, last-write-wins per record by `updatedAt`.
 
+## Native app wrapper
+
+`ios/` and `android/` are a [Capacitor](https://capacitorjs.com) shell around the same static app, added for App Store/Play Store distribution — they don't change how the web/PWA build works or is served. `npm run build` copies `index.html`/`sw.js`/`manifest.json`/`data/`/`icons/`/`vendor/` verbatim into `www/` (gitignored, regenerate any time from `scripts/build-www.js` — it's a plain file copy, not a bundler), and `npm run sync` runs that plus `npx cap sync` to push it into both native projects. Building/running the native apps themselves needs Xcode (iOS) or Android Studio (Android) on the developer's own machine.
+
 ## Git workflow
 
 Development happens on a feature branch (currently `claude/app-store-paid-launch-1jkhur`); the repo owner reviews and merges into `main` themselves. Don't push directly to `main`.
