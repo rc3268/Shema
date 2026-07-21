@@ -181,6 +181,7 @@
   .sermon-card .actions{ display:flex; gap:6px; flex-shrink:0; }
   #emptyLibrary{ text-align:center; color:var(--muted); padding:60px 30px; line-height:1.6; }
   #emptyLibrary button{ margin-top:14px; }
+  #emptyEditor{ color:var(--muted); font-size:16px; text-align:center; margin-top:15vh; line-height:1.6; padding:0 24px; }
   #librarySearchRow{ padding:8px 14px 12px; flex-shrink:0; }
   #librarySearchRow input{
     width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
@@ -1053,7 +1054,7 @@
       </div>
       <div class="settings-row" id="settingsSyncRow" style="display:none;">
         <div class="settings-row-label"><span>Sync Now</span><span class="settings-row-sub" id="settingsSyncNowSub">Manually check for updates</span></div>
-        <button class="btn icon" id="syncNowBtn" title="Sync now">↻</button>
+        <button class="btn icon" id="syncNowBtn" title="Sync now"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></button>
       </div>
       <div class="settings-row" id="settingsBackupRow">
         <div class="settings-row-label"><span>Backup</span><span class="settings-row-sub">Download everything as a file</span></div>
@@ -1433,7 +1434,10 @@
     if(name==='library') renderLibrary();
     if(name==='plan') renderPlan();
     if(name==='illustrations') renderIllustrations();
-    if(name==='editor') applyPrepWidth();
+    if(name==='editor'){
+      applyPrepWidth();
+      if(!getEditing()) renderEmptyEditor();
+    }
     else document.getElementById('prepResizeHandle').style.display = 'none';
   }
   document.querySelectorAll('.nav-item').forEach(b=>{
@@ -1834,7 +1838,7 @@
             <button class="icon-sm" data-act="edit-tpl" title="Edit this template">Edit</button>
             ${conflictOriginal ? `<button class="icon-sm" data-act="keep-this" title="Make this version the only one, replacing the other">Keep This</button>` : ''}
             ${t.conflictOf ? `<button class="icon-sm" data-act="keep-both" title="Keep both permanently as separate templates">Keep Both</button>` : ''}
-            <button class="icon-sm" data-act="del-tpl" title="Delete this template"><img class="mono-ic" src="icons/del.png" data-light="icons/del.png" data-dark="icons/del-dark.png" style="height:12px;width:12px;display:block;" alt=""></button>
+            <button class="icon-sm" data-act="del-tpl" title="Delete this template">Delete</button>
           </div>
         </div>
         <div class="tsecs">${escapeHtml(t.desc)}</div>`;
@@ -2024,8 +2028,21 @@
     el.textContent = s.title || 'Untitled Sermon';
   }
 
+  // Reachable any time via the bottom nav's always-live "Prepare" tab, not just through Library's
+  // Edit/+New flow -- without this, tapping it with nothing open left a blank canvas with the
+  // Save/Export/Present toolbar still sitting there looking active, unlike every other main view
+  // (Library, Illustrations, Present, Practice), which all show a guiding message instead.
+  function renderEmptyEditor(){
+    document.getElementById('sectionsWrap').innerHTML =
+      `<div id="emptyEditor">Nothing to prepare yet.<br>Open a sermon from your Library, or tap "+ New" to start one.</div>`;
+    document.getElementById('richToolbar').style.display = 'none';
+    document.getElementById('editorFooter').style.display = 'none';
+  }
+
   function renderSections(){
     const s = getEditing();
+    document.getElementById('richToolbar').style.display = '';
+    document.getElementById('editorFooter').style.display = '';
     const wrap = document.getElementById('sectionsWrap');
     wrap.innerHTML = '';
     s.sections.forEach((sec, si)=>{
