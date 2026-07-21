@@ -193,11 +193,16 @@
     padding-bottom:env(safe-area-inset-bottom);
   }
   .nav-item{
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
-    padding:9px 0 8px; background:none; border:none; color:var(--muted); cursor:pointer; font-size:10px;
+    flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:9px 2px 8px; background:none; border:none; color:var(--muted); cursor:pointer; font-size:10px;
     letter-spacing:.5px; text-transform:uppercase; font-weight:600; font-family:'Playfair Display',serif;
   }
   .nav-item .ic{ width:22px; height:22px; object-fit:contain; display:block; }
+  /* min-width:0 above makes every tab share the row equally instead of one long label (e.g.
+     "Illustrations") growing past its share and overlapping its neighbors -- this then needs
+     somewhere to give the overflow, so the label itself clips to an ellipsis rather than
+     spilling into the next tab. */
+  .nav-label{ display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   /* Inline SVG (not a raster .ic) so the gold "active" color comes from currentColor/inheritance
      instead of the filter-based recolor trick the PNG nav icons need. */
   .nav-item .nav-ic-svg{ width:22px; height:22px; display:block; }
@@ -218,6 +223,15 @@
   .tag{ background:var(--gold-soft); color:var(--gold-dim); padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; font-family:'Playfair Display',serif; }
   .tag.conflict-tag{ background:rgba(214,110,40,0.16); color:#b0561f; }
   .sermon-card .actions{ display:flex; gap:6px; flex-shrink:0; }
+  /* Four action buttons don't fit beside the title/tag/date column on a phone-width screen --
+     without this, .info's min-width:0 lets it get squeezed down to a couple of characters while
+     .actions (flex-shrink:0) keeps its full natural width, so the two visually collide. Stacking
+     the card and letting the actions row split the full width evenly fixes both at once. */
+  @media (max-width:480px){
+    .sermon-card{ flex-direction:column; align-items:stretch; }
+    .sermon-card .actions{ margin-top:10px; }
+    .sermon-card .actions .btn{ flex:1; padding:9px 4px; font-size:12.5px; }
+  }
   #emptyLibrary{ text-align:center; color:var(--muted); padding:60px 30px; line-height:1.6; }
   #emptyLibrary button{ margin-top:14px; }
   #emptyEditor{ color:var(--muted); font-size:16px; text-align:center; margin-top:15vh; line-height:1.6; padding:0 24px; }
@@ -374,6 +388,16 @@
   }
   .drag-handle:active{ cursor:grabbing; color:var(--gold-dim); }
   .item-row .icon-sm{ background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer; flex-shrink:0; }
+  /* Groups the text box with its scripture-only action buttons so they share one flex context
+     separate from the row's other fixed-width chrome (drag handle, type select, delete) --
+     lets a narrow screen stack text-above-buttons without touching that chrome's layout. */
+  .item-main{ flex:1; min-width:0; display:flex; align-items:flex-start; gap:8px; }
+  .item-scripture-actions{ display:flex; gap:6px; flex-shrink:0; padding-top:4px; }
+  @media (max-width:480px){
+    .item-main{ flex-direction:column; }
+    .item-scripture-actions{ padding-top:0; width:100%; }
+    .item-scripture-actions .icon-sm{ flex:1; text-align:center; font-size:12px; white-space:nowrap; padding:4px 2px; }
+  }
   .item-text{
     flex:1; background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
     color:var(--text); font-size:16px; line-height:1.65; padding:10px 12px; font-family:inherit;
@@ -589,7 +613,10 @@
   #sectionLabel{ position:absolute; top:14px; left:50%; transform:translateX(-50%); font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--gold-dim); }
   #sectionContent{ width:100%; max-width:900px; margin-top:44px; overflow-y:auto; max-height:calc(100% - 44px); padding-right:4px; scrollbar-width:none; }
   #sectionContent::-webkit-scrollbar{ display:none; }
-  #sectionTitle{ font-family:'Playfair Display',serif; font-weight:700; font-size:var(--title-size,44px); line-height:1.1; margin:0 0 26px; border-bottom:2px solid var(--gold-dim); padding-bottom:14px; }
+  /* overflow-wrap so a single long word (most section titles are one word, e.g. "INTRODUCTION")
+     breaks onto a second line on a narrow screen instead of silently overflowing past #stage's
+     hidden edge -- multi-word titles/sermon names already wrap fine at their natural spaces. */
+  #sectionTitle{ font-family:'Playfair Display',serif; font-weight:700; font-size:var(--title-size,44px); line-height:1.1; margin:0 0 26px; border-bottom:2px solid var(--gold-dim); padding-bottom:14px; overflow-wrap:break-word; }
   #sermonCover{ margin:0 0 30px; padding-bottom:22px; border-bottom:2px solid var(--gold); }
   #sermonCoverSeries{
     font-family:'Inter',sans-serif; font-size:calc(var(--body-size,26px) * 0.5); font-weight:700;
@@ -597,7 +624,7 @@
   }
   #sermonCoverTitle{
     font-family:'Playfair Display',serif; font-weight:700; color:var(--gold);
-    font-size:calc(var(--title-size,44px) * 1.15); line-height:1.1; margin:0;
+    font-size:calc(var(--title-size,44px) * 1.15); line-height:1.1; margin:0; overflow-wrap:break-word;
   }
   .line{ font-size:var(--body-size,26px); line-height:1.55; margin:0 0 18px; }
   .line.bullet{ padding-left:1.1em; position:relative; }
@@ -630,8 +657,13 @@
      rules, so nothing here can ever affect the view actually used for live preaching. .line,
      .timer-btn, .nav-btn, .top-actions, .dark-toggle and the --body-size/--title-size vars are
      genuinely shared already since those were class/custom-property based to begin with.) */
-  .practice-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  .practice-top::-webkit-scrollbar{ display:none; }
+  .practice-top{ display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; }
+  .practice-top-scroll{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex:1; min-width:0;
+    overflow-x:auto; -webkit-overflow-scrolling:touch;
+  }
+  .practice-top-scroll::-webkit-scrollbar{ display:none; }
+  #practiceFinishBtn{ flex-shrink:0; }
   .practice-timer-display{
     font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:26px; letter-spacing:1px;
     color:var(--text); border:1px solid var(--line); border-radius:8px; padding:4px 10px; min-width:96px; text-align:center;
@@ -643,7 +675,7 @@
   .practice-section-label{ position:absolute; top:14px; left:50%; transform:translateX(-50%); font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--gold-dim); }
   .practice-section-content{ width:100%; max-width:900px; margin-top:44px; overflow-y:auto; max-height:calc(100% - 44px); padding-right:4px; scrollbar-width:none; }
   .practice-section-content::-webkit-scrollbar{ display:none; }
-  .practice-section-title{ font-family:'Playfair Display',serif; font-weight:700; font-size:var(--title-size,44px); line-height:1.1; margin:0 0 26px; border-bottom:2px solid var(--gold-dim); padding-bottom:14px; }
+  .practice-section-title{ font-family:'Playfair Display',serif; font-weight:700; font-size:var(--title-size,44px); line-height:1.1; margin:0 0 26px; border-bottom:2px solid var(--gold-dim); padding-bottom:14px; overflow-wrap:break-word; }
   .practice-sermon-cover{ margin:0 0 30px; padding-bottom:22px; border-bottom:2px solid var(--gold); }
   .practice-sermon-cover-series{
     font-family:'Inter',sans-serif; font-size:calc(var(--body-size,26px) * 0.5); font-weight:700;
@@ -651,7 +683,7 @@
   }
   .practice-sermon-cover-title{
     font-family:'Playfair Display',serif; font-weight:700; color:var(--gold);
-    font-size:calc(var(--title-size,44px) * 1.15); line-height:1.1; margin:0;
+    font-size:calc(var(--title-size,44px) * 1.15); line-height:1.1; margin:0; overflow-wrap:break-word;
   }
   .practice-empty{ color:var(--muted); font-size:18px; text-align:center; margin-top:15vh; line-height:1.6; }
   .practice-nav-bar{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--panel); border-top:1px solid var(--line); flex-shrink:0; padding-bottom:calc(12px + env(safe-area-inset-bottom)); }
@@ -933,20 +965,27 @@
        but layout containers get their own practice-prefixed classes -- see the CSS block below. -->
   <div class="view" id="view-practice">
     <div class="practice-top">
-      <div class="timer-block">
-        <div class="countdown-row">
-          <button class="timer-btn" id="practicePlayBtn" title="Start/pause practice">Start</button>
-          <div class="practice-timer-display" id="practiceTimerDisplay">00:00</div>
-          <button class="timer-btn" id="practiceDiscardBtn" title="Discard this take and reset the timer">Discard</button>
+      <!-- Everything except Finish lives in this inner scroller -- on a narrow phone the full
+           control set (timer, Discard, sermon name, Notes, Takes, dark toggle, Finish) is
+           genuinely too wide for one row, and Finish (stops + saves the take) is the one button
+           that must never end up scrolled off-screen and undiscoverable, so it's kept outside,
+           always visible, instead of being just another item in the scrollable row. -->
+      <div class="practice-top-scroll">
+        <div class="timer-block">
+          <div class="countdown-row">
+            <button class="timer-btn" id="practicePlayBtn" title="Start/pause practice">Start</button>
+            <div class="practice-timer-display" id="practiceTimerDisplay">00:00</div>
+            <button class="timer-btn" id="practiceDiscardBtn" title="Discard this take and reset the timer">Discard</button>
+          </div>
+        </div>
+        <div class="practice-sermon-info" id="practiceSermonInfo"></div>
+        <div class="top-actions">
+          <button class="btn icon" id="practiceNotesBtn" title="Practice notes for this sermon">Notes</button>
+          <button class="btn icon" id="practiceTakesBtn" title="Past takes for this sermon">Takes</button>
+          <button class="icon-btn dark-toggle" id="darkModeBtnPractice" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:16px;width:16px;display:block;" alt=""></button>
         </div>
       </div>
-      <div class="practice-sermon-info" id="practiceSermonInfo"></div>
-      <div class="top-actions">
-        <button class="btn icon" id="practiceNotesBtn" title="Practice notes for this sermon">Notes</button>
-        <button class="btn icon" id="practiceTakesBtn" title="Past takes for this sermon">Takes</button>
-        <button class="btn gold" id="practiceFinishBtn" title="Stop recording and save this take">Finish</button>
-        <button class="icon-btn dark-toggle" id="darkModeBtnPractice" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:16px;width:16px;display:block;" alt=""></button>
-      </div>
+      <button class="btn gold" id="practiceFinishBtn" title="Stop recording and save this take">Finish</button>
     </div>
     <div class="practice-track" id="practiceTrack"></div>
     <div class="practice-stage" id="practiceStage">
@@ -998,15 +1037,15 @@
   </div>
 
   <div id="bottomnav">
-    <button class="nav-item active" data-view="library"><img class="ic nav-ic" src="icons/nav-library.png" data-light="icons/nav-library.png" data-dark="icons/nav-library-dark.png" alt="">Library</button>
-    <button class="nav-item" data-view="plan"><img class="ic nav-ic" src="icons/nav-plan.png" data-light="icons/nav-plan.png" data-dark="icons/nav-plan-dark.png" alt="">Plan</button>
-    <button class="nav-item" data-view="editor"><img class="ic nav-ic" src="icons/nav-editor.png" data-light="icons/nav-editor.png" data-dark="icons/nav-editor-dark.png" alt="">Prepare</button>
-    <button class="nav-item" data-view="illustrations"><img class="ic nav-ic" src="icons/nav-illustrations.png" data-light="icons/nav-illustrations.png" data-dark="icons/nav-illustrations-dark.png" alt="">Illustrations</button>
+    <button class="nav-item active" data-view="library"><img class="ic nav-ic" src="icons/nav-library.png" data-light="icons/nav-library.png" data-dark="icons/nav-library-dark.png" alt=""><span class="nav-label">Library</span></button>
+    <button class="nav-item" data-view="plan"><img class="ic nav-ic" src="icons/nav-plan.png" data-light="icons/nav-plan.png" data-dark="icons/nav-plan-dark.png" alt=""><span class="nav-label">Plan</span></button>
+    <button class="nav-item" data-view="editor"><img class="ic nav-ic" src="icons/nav-editor.png" data-light="icons/nav-editor.png" data-dark="icons/nav-editor-dark.png" alt=""><span class="nav-label">Prepare</span></button>
+    <button class="nav-item" data-view="illustrations"><img class="ic nav-ic" src="icons/nav-illustrations.png" data-light="icons/nav-illustrations.png" data-dark="icons/nav-illustrations-dark.png" alt=""><span class="nav-label">Illustrations</span></button>
     <button class="nav-item" data-view="practice">
       <svg class="nav-ic-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l3 2"></path><path d="M9 3h6"></path><path d="M12 3v3"></path></svg>
-      Practice
+      <span class="nav-label">Practice</span>
     </button>
-    <button class="nav-item" data-view="present"><img class="ic nav-ic" src="icons/nav-present.png" data-light="icons/nav-present.png" data-dark="icons/nav-present-dark.png" alt="">Present</button>
+    <button class="nav-item" data-view="present"><img class="ic nav-ic" src="icons/nav-present.png" data-light="icons/nav-present.png" data-dark="icons/nav-present-dark.png" alt=""><span class="nav-label">Present</span></button>
   </div>
 </div>
 
@@ -2195,9 +2234,13 @@
              <option value="quiet">quiet</option>
              <option value="scripture">scripture</option>
            </select>`}
-      <div class="item-text" contenteditable="true" data-role="text" data-placeholder="Type here..."></div>
-      ${it.type === 'scripture' ? '<button class="icon-sm" data-act="insert-verse" title="Insert the KJV text for this reference — works offline">Insert KJV</button>' : ''}
-      ${it.type === 'scripture' ? '<button class="icon-sm" data-act="lookup" title="Look up on Blue Letter Bible">Look up</button>' : ''}
+      <div class="item-main">
+        <div class="item-text" contenteditable="true" data-role="text" data-placeholder="Type here..."></div>
+        ${it.type === 'scripture' ? `<div class="item-scripture-actions">
+          <button class="icon-sm" data-act="insert-verse" title="Insert the KJV text for this reference — works offline">Insert KJV</button>
+          <button class="icon-sm" data-act="lookup" title="Look up on Blue Letter Bible">Look up</button>
+        </div>` : ''}
+      </div>
       <button class="icon-sm" data-act="del"><img class="mono-ic" src="icons/del.png" data-light="icons/del.png" data-dark="icons/del-dark.png" style="height:13px;width:13px;display:block;" alt=""></button>`;
     if(!isIllustration){
       const sel = row.querySelector('[data-role="type"]');
