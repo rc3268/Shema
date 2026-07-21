@@ -631,7 +631,10 @@
     font-family:'Playfair Display',serif; font-weight:700; color:var(--gold);
     font-size:calc(var(--title-size,44px) * 1.15); line-height:1.1; margin:0; overflow-wrap:break-word;
   }
-  .line{ font-size:var(--body-size,26px); line-height:1.55; margin:0 0 18px; }
+  /* overflow-wrap for the same reason #sectionTitle has it above -- a single long unbroken word
+     in an item's body text (a name, a URL, a technical term) would otherwise silently overflow
+     past #stage's hidden edge on a narrow screen instead of breaking onto a second line. */
+  .line{ font-size:var(--body-size,26px); line-height:1.55; margin:0 0 18px; overflow-wrap:break-word; }
   .line.bullet{ padding-left:1.1em; position:relative; }
   .line.bullet::before{ content:"—"; position:absolute; left:0; color:var(--gold); }
   .line.quiet{ color:var(--muted); font-style:italic; font-size:calc(var(--body-size,26px) - 5px); }
