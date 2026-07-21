@@ -15,6 +15,15 @@
      network endpoint the app ever calls. frame-ancestors/report-uri are omitted on purpose --
      meta-tag CSP delivery ignores them per spec, so listing them here would be misleading. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' data: blob: https://rzwuivjdyrunqnwlmijf.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'">
+<script>
+  // Runs before the stylesheet below even paints anything -- native gets #app immediately (see
+  // the "html.is-web #app{display:none}" rule further down and decideWebAccess() in the main
+  // script), web starts hidden so there's no flash of the real app before the async sync check
+  // resolves. window.Capacitor is injected by the native runtime ahead of any page script.
+  document.documentElement.classList.add(
+    (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ? 'is-native' : 'is-web'
+  );
+</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Shema — Organize. Prepare. Proclaim.</title>
@@ -94,6 +103,33 @@
   #app{ display:flex; flex-direction:column; height:100vh; height:100dvh; background:var(--bg);
     padding-top:env(safe-area-inset-top); padding-left:env(safe-area-inset-left);
     padding-right:env(safe-area-inset-right); }
+  /* Hidden by default on web until decideWebAccess() resolves and explicitly reveals it --
+     without this, the real app would flash visible for a moment on every page load before the
+     async sync check has a chance to redirect to the marketing page. Native never gets this
+     class (see the inline script in <head>), so #app's own display:flex above applies there
+     immediately, with no async wait at all. */
+  html.is-web #app{ display:none; }
+
+  /* ===== MARKETING PAGE (web-only signed-out/no-sync landing, see decideWebAccess) =====
+     body is position:fixed/overflow:hidden app-wide (the rest of the app scrolls internally via
+     .scroll containers instead) -- this needs its own scroll region for the same reason any
+     other full-height view would. */
+  #marketingPage{ height:100vh; height:100dvh; overflow-y:auto; -webkit-overflow-scrolling:touch; background:var(--bg);
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  .mkt-wrap{ max-width:640px; margin:0 auto; padding:64px 24px 80px; text-align:center; }
+  .mkt-mark{ width:88px; height:88px; display:block; margin:0 auto 22px; }
+  .mkt-eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold-dim); margin:0 0 14px; }
+  .mkt-h1{ font-family:'Playfair Display',serif; font-size:38px; line-height:1.15; margin:0 0 16px; color:var(--text); text-wrap:balance; }
+  .mkt-dek{ font-size:17px; color:var(--muted); line-height:1.6; margin:0 0 40px; }
+  .mkt-features{ display:grid; gap:16px; text-align:left; margin:0 0 40px; }
+  @media (min-width:640px){ .mkt-features{ grid-template-columns:1fr 1fr; } }
+  .mkt-feature{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px 22px; }
+  .mkt-feature h3{ font-family:'Playfair Display',serif; font-weight:700; font-size:17px; margin:0 0 8px; color:var(--gold-dim); }
+  .mkt-feature p{ font-size:14.5px; color:var(--muted); line-height:1.6; margin:0; }
+  .mkt-store-note{ font-size:13px; color:var(--muted); line-height:1.6; margin:0 0 28px; }
+  .mkt-account{ border-top:1px solid var(--line); padding-top:28px; }
+  .mkt-account-status{ font-size:14px; color:var(--text); margin:0 0 8px; }
+  .mkt-account-hint{ font-size:13px; color:var(--muted); line-height:1.6; margin:0 0 16px; }
 
   #brandbar{
     display:flex; align-items:center; gap:9px; padding:10px 16px;
@@ -716,6 +752,41 @@
 </style>
 </head>
 <body>
+<!-- Shown on the web build to anyone who isn't signed into an account with an active sync
+     subscription (native app: always skipped, see isNativeApp/decideWebAccess in the script --
+     the app itself is a paid store purchase, checked entirely by Apple/Google, not by this page).
+     The web build was never meant to be a free-standing alternative to buying the app -- see
+     context.md's 2026-07-21 pricing History entry. Kept as a sibling of #app (not nested inside
+     it) purely so toggling one doesn't require touching the other's markup at all. -->
+<div id="marketingPage" style="display:none;">
+  <div class="mkt-wrap">
+    <img src="shema-mark-color.png" class="mkt-mark" alt="">
+    <p class="mkt-eyebrow">Now on the App Store &amp; Google Play</p>
+    <h1 class="mkt-h1">Sermon notes that speak clearly.</h1>
+    <p class="mkt-dek">Write, organize, and rehearse a sermon on your phone or tablet, then step up and preach from a distraction-free stage view — countdown timer included.</p>
+    <div class="mkt-features">
+      <div class="mkt-feature">
+        <h3>Built for the pulpit, not just note-taking</h3>
+        <p>Present mode is a real stage display — large adaptive type, a countdown timer, and nothing else competing for attention while you're actually speaking.</p>
+      </div>
+      <div class="mkt-feature">
+        <h3>Hear yourself before Sunday does</h3>
+        <p>Practice Mode records your run-through, keeps your last few takes, and lets you tap any line to leave yourself a note on what to change.</p>
+      </div>
+    </div>
+    <p class="mkt-store-note">Get the app on your phone or tablet to write, present, and rehearse. Signing in here is only for an existing Sync subscriber checking a synced sermon from a computer.</p>
+
+    <div id="mktSignedOut" class="mkt-account">
+      <button class="btn gold" id="mktSignInBtn">Sign In</button>
+    </div>
+    <div id="mktSignedIn" class="mkt-account" style="display:none;">
+      <p class="mkt-account-status">Signed in as <strong id="mktEmailDisplay"></strong></p>
+      <p class="mkt-account-hint">No active Sync subscription on this account yet. Subscribe from inside the Shema app on your phone or tablet to reach your sermons here too.</p>
+      <button class="btn" id="mktSignOutBtn">Sign Out</button>
+    </div>
+  </div>
+</div>
+
 <div id="app">
 
   <div id="brandbar">
@@ -1078,20 +1149,14 @@
   </div>
 </div>
 
-<!-- Account: sign in (Google or email link) for cross-device sync -- signing in is optional,
-     the local-only path stays fully functional forever (see context.md business model). -->
+<!-- Account: sign in (Google or email link) for cross-device sync -- the app itself is a paid
+     store purchase (App Store/Play Store handle that natively, nothing to check here); signing
+     in is only ever about the sync subscription, which is also the only way to reach Shema from
+     a computer (see context.md business model). -->
 <div class="modal-overlay drawer-right" id="accountModal">
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Account</h2><button class="btn icon" id="closeAccountModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll">
-      <!-- The one-time unlock is a per-device App Store/Play Store purchase, not a Supabase
-           account thing -- it has to work whether or not you've ever signed in (see context.md
-           business model: "no account" is a permanent option, not a crippled trial). Shown above
-           the sign-in split for that reason; sync, below, is inherently account-bound instead. -->
-      <div class="account-section" id="acctUnlockSection">
-        <div class="account-row"><span>Full unlock</span><strong id="acctUnlockStatus">—</strong></div>
-        <button class="btn gold" id="acctUnlockBtn" style="width:100%; margin-top:10px; display:none;">Unlock the full app</button>
-      </div>
       <div id="accountSignedOut">
         <p style="color:var(--muted); font-size:13px; line-height:1.5; margin:0 0 16px;">
           Shema works fully offline with no account. Sign in only if you want the same sermon
@@ -4069,12 +4134,12 @@
   window.addEventListener('resize', applyPrepWidth);
 
   /* ============ ACCOUNT (Supabase auth + entitlement) ============
-     Signing in is entirely optional -- everything above this line works forever with no
-     account (see context.md business model). This section only ever reads auth state and
-     the two entitlement flags (owns_app, sync_subscription_active); it doesn't touch
-     sermons/illustrations/templates -- that's the sync engine, a separate roadmap phase not
-     built yet. The anon key below is meant to be public (same as any client-side API key) --
-     protection comes from the database's Row Level Security, not from hiding this string. */
+     Signing in is only ever about the sync subscription (see context.md business model -- the
+     app itself is a plain paid store purchase, nothing to check here). This section only ever
+     reads auth state and `sync_subscription_active`; it doesn't touch sermons/illustrations/
+     templates directly -- that's the sync engine, further down. The anon key below is meant to
+     be public (same as any client-side API key) -- protection comes from the database's Row
+     Level Security, not from hiding this string. */
   const SUPABASE_URL = 'https://rzwuivjdyrunqnwlmijf.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_Z4kcLmxron4Xi0_OLKtWTA_bvf9aw4x';
   const sb = (typeof window.supabase !== 'undefined')
@@ -4082,16 +4147,13 @@
     : null;
 
   /* ============ REVENUECAT (Phase 4 billing) ============
-     Nothing here gates any existing feature -- exactly like the entitlement display it feeds,
-     this is purely additive plumbing (see context.md: whether Shema ends up sold as a paid-up-
-     front store listing or a free download with an in-app unlock is still an open pricing
-     decision, not something to lock in by writing a paywall check). Two entitlements, matching
-     the two Postgres flags: RC_ENTITLEMENT_UNLOCK (one-time, works with no account at all -- a
-     local purchase is checked on-device via RevenueCat's own SDK, independent of Supabase) and
-     RC_ENTITLEMENT_SYNC (subscription, inherently account-bound since sync needs an identity to
-     attach cloud data to). Convention: an Offering in the RevenueCat dashboard named identically
-     to each entitlement id, holding that entitlement's one package. */
-  const RC_ENTITLEMENT_UNLOCK = 'owns_app';
+     The app itself is a plain paid App Store/Play Store listing, not an in-app purchase -- Apple/
+     Google enforce that entirely on their own, with zero code here. RevenueCat only exists for
+     the ONE thing that's genuinely a recurring purchase: the sync subscription. (An earlier pass
+     also tracked a local "owns_app" entitlement for a since-abandoned free-download-plus-unlock
+     plan -- see context.md's 2026-07-21 pricing History entry for why that was dropped, if this
+     shows back up in a diff somewhere.) Convention: a RevenueCat Offering named "sync" holding
+     that entitlement's one package. */
   const RC_ENTITLEMENT_SYNC = 'sync';
   const APP_BUNDLE_ID = 'com.shema.app';
   // Public API keys -- same "meant to be public" category as the Supabase anon key above; the
@@ -4113,20 +4175,13 @@
   initRevenueCat();
 
   // Keeps RevenueCat's purchase identity aligned with whichever Supabase account (if any) is
-  // signed in, so a purchase made while signed in is recognized on a second device too -- entirely
-  // separate from the always-available anonymous identity a signed-out purchase uses instead.
+  // signed in -- sync is inherently account-bound (there's nothing to subscribe to without an
+  // identity to attach cloud data to), so unlike the abandoned local-unlock idea this never
+  // needs to support a signed-out/anonymous purchase at all.
   async function syncRevenueCatIdentity(userId){
     if(!rcReady) return;
     try{ userId ? await window.RevenueCatPurchases.logIn({ appUserID: userId }) : await window.RevenueCatPurchases.logOut(); }
     catch(e){ console.error('[revenuecat] identity sync failed', e); }
-  }
-
-  async function getLocalEntitlement(entitlementId){
-    if(!rcReady) return false;
-    try{
-      const { customerInfo } = await window.RevenueCatPurchases.getCustomerInfo();
-      return !!(customerInfo.entitlements.active && customerInfo.entitlements.active[entitlementId]);
-    } catch(e){ console.error('[revenuecat] getCustomerInfo failed', e); return false; }
   }
 
   async function purchaseEntitlement(entitlementId, btn, label){
@@ -4146,7 +4201,6 @@
     } finally { btn.disabled = false; }
   }
 
-  document.getElementById('acctUnlockBtn').addEventListener('click', (e)=> purchaseEntitlement(RC_ENTITLEMENT_UNLOCK, e.target, 'Unlock'));
   document.getElementById('acctSyncBtn').addEventListener('click', (e)=> purchaseEntitlement(RC_ENTITLEMENT_SYNC, e.target, 'Sync subscription'));
 
   // Purely a display label -- the app has no real dev-only powers gated behind this yet, so
@@ -4161,6 +4215,59 @@
     // is, today, definitionally a pre-launch tester rather than a paying customer.
     return 'tester';
   }
+
+  /* ============ WEB ACCESS GATE ============
+     Native: always the real app -- the purchase itself is a paid store listing, checked entirely
+     by Apple/Google, nothing to decide here. Web: the app is only ever shown to a signed-in
+     account with an active sync subscription; everyone else lands on the marketing page instead
+     (#app and #marketingPage are siblings, see the top of <body> -- toggling one never touches
+     the other's markup). See context.md's 2026-07-21 pricing History entry for why the web build
+     stopped being a free-standing alternative to buying the app. */
+  async function decideWebAccess(){
+    if(isNativeApp) return;
+    const appEl = document.getElementById('app');
+    const mktEl = document.getElementById('marketingPage');
+    let session = null, profile = null;
+    if(sb){
+      const { data } = await sb.auth.getSession();
+      session = data.session;
+      if(session && session.user){
+        const { data: p } = await sb.from('profiles').select('sync_subscription_active').eq('id', session.user.id).maybeSingle();
+        profile = p;
+      }
+    }
+    if(profile && profile.sync_subscription_active){
+      mktEl.style.display = 'none';
+      // 'flex', not '' -- an empty inline value only clears any inline override and falls back
+      // to the CSS cascade, where "html.is-web #app{display:none}" (a class selector) still
+      // outranks the bare "#app{display:flex}" rule. An explicit inline value is what actually
+      // wins here.
+      appEl.style.display = 'flex';
+      return;
+    }
+    appEl.style.display = 'none';
+    mktEl.style.display = '';
+    const signedOutEl = document.getElementById('mktSignedOut');
+    const signedInEl = document.getElementById('mktSignedIn');
+    if(session && session.user){
+      signedOutEl.style.display = 'none';
+      signedInEl.style.display = '';
+      document.getElementById('mktEmailDisplay').textContent = session.user.email || session.user.id;
+    } else {
+      signedOutEl.style.display = '';
+      signedInEl.style.display = 'none';
+    }
+  }
+  document.getElementById('mktSignInBtn').addEventListener('click', ()=>{
+    document.getElementById('accountModal').classList.add('open');
+    refreshAccountState();
+  });
+  document.getElementById('mktSignOutBtn').addEventListener('click', async ()=>{
+    if(!sb) return;
+    await sb.auth.signOut();
+    decideWebAccess();
+  });
+  decideWebAccess();
 
   const settingsModal = document.getElementById('settingsModal');
   const accountModal = document.getElementById('accountModal');
@@ -4190,20 +4297,15 @@
     if(sb){ const { data } = await sb.auth.getSession(); session = data.session; }
     await syncRevenueCatIdentity(session && session.user ? session.user.id : null);
 
-    // Unlock status: a signed-in account's Supabase profile flag (so a purchase follows you to a
-    // second device/platform) OR this device's own local purchase (so it works with no account
-    // at all) -- whichever says yes, wins. No profiles row yet (table not created, or the
-    // trigger hasn't fired) reads as "not entitled" rather than erroring -- entitlement flags are
-    // only ever written server-side anyway (see the RLS policy), so that's just "hasn't bought it".
+    // No profiles row yet (table not created, or the trigger hasn't fired) reads as "not synced"
+    // rather than erroring -- sync_subscription_active is only ever written server-side anyway
+    // (see the RLS policy), so a row-less signed-in user just hasn't subscribed yet.
     let profile = null;
     if(session && session.user){
       const { data } = await sb.from('profiles')
-        .select('owns_app, sync_subscription_active').eq('id', session.user.id).maybeSingle();
+        .select('sync_subscription_active').eq('id', session.user.id).maybeSingle();
       profile = data;
     }
-    const ownsApp = (profile ? profile.owns_app : false) || await getLocalEntitlement(RC_ENTITLEMENT_UNLOCK);
-    document.getElementById('acctUnlockStatus').textContent = ownsApp ? 'Unlocked' : 'Not yet';
-    document.getElementById('acctUnlockBtn').style.display = ownsApp ? 'none' : '';
 
     if(!session || !session.user){
       signedIn = false;
@@ -4254,6 +4356,7 @@
     if(!sb) return;
     await sb.auth.signOut();
     refreshAccountState();
+    decideWebAccess(); // signing out of a syncing account mid-session should drop back to the marketing page on web
   });
 
   // Neither the App Store nor Play Store SDK gives a "show the manage-subscription sheet" call

@@ -76,7 +76,8 @@
         "npm:@capacitor/cli@8.4.2",
         "npm:@capacitor/core@8.4.2",
         "npm:@capacitor/ios@8.4.2",
-        "npm:@revenuecat/purchases-capacitor@^13.2.3"
+        "npm:@revenuecat/purchases-capacitor@^13.2.3",
+        "npm:esbuild@~0.28.1"
       ]
     }
   }
