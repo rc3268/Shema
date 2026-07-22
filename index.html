@@ -3156,6 +3156,17 @@
         ${metaLine ? `<p class="m-meta">${escapeHtml(metaLine)}</p>` : ''}
         ${sectionsHtml}
       </div>
+      <script>
+        // Self-invoked from inside this popup's own document, not called on it from the opener's
+        // script (the previous approach) -- calling .print() on a *different* window than the one
+        // whose script is running it is a real, documented source of print jobs losing track of
+        // that window's own @page rule and falling back to whatever default margin the browser (or,
+        // once a non-browser print driver like a PDF-printer gets involved, the OS's own print
+        // pipeline) applies instead. Triggering print from within the printed document itself keeps
+        // the browser's normal print-preview path -- the one that actually reads this page's @page
+        // margin -- in play.
+        window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 150); });
+      <\/script>
     </body></html>`;
 
     const w = window.open('', '_blank');
@@ -3164,7 +3175,6 @@
     w.document.write(doc);
     w.document.close();
     w.focus();
-    setTimeout(()=>{ w.print(); }, 300);
   }
 
   function saveEditing(){
