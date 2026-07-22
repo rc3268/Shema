@@ -285,6 +285,7 @@
   .modal-sheet-header{ display:flex; justify-content:space-between; align-items:center; padding:16px 18px 10px; }
   .modal-sheet-header h2{ font-family:'Playfair Display',serif; font-size:19px; margin:0; color:var(--heading); }
   .modal-sheet .scroll{ padding:0 18px 18px; }
+  .filter-clear-row{ padding:0 18px 14px; flex-shrink:0; }
 
   /* Right-side drawer variant: used for Settings/Account instead of a bottom sheet, since
      those are less "quick action, dismiss" and more "a place you sit for a bit" -- kept as an
@@ -555,6 +556,7 @@
   .plan-day:hover{ box-shadow:0 2px 8px rgba(0,0,0,0.08); border-color:var(--sage); }
   .plan-day.outside{ opacity:0.35; }
   .plan-day.today .plan-daynum{ background:var(--gold); color:var(--ink); border-radius:50%; }
+  .plan-day.jump-flash{ box-shadow:inset 0 0 0 2px var(--gold); border-color:var(--gold); }
   .plan-daynum{
     font-size:11px; font-weight:700; color:var(--text); width:19px; height:19px;
     display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif;
@@ -565,7 +567,8 @@
   }
   .plan-more{ font-size:9px; color:var(--muted); padding:0 2px; }
   #planLegend{ display:flex; gap:10px; flex-wrap:wrap; padding:10px; }
-  .plan-legend-item{ display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+  .plan-legend-item{ display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); cursor:pointer; padding:2px 4px; border-radius:5px; transition:background .15s ease, color .15s ease; }
+  .plan-legend-item:hover{ background:var(--panel-2); color:var(--text); }
   .plan-legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   #toastHost{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999;
@@ -1375,6 +1378,7 @@
 <div class="modal-overlay drawer-left" id="libraryFiltersModal">
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Filters</h2><button class="btn icon" id="closeLibraryFiltersModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="filter-clear-row"><button class="btn" id="libFilterClearBtn" style="width:100%;">Clear All Filters</button></div>
     <div class="scroll">
       <div class="slicer-group">
         <div class="slicer-label">Sermon</div>
@@ -1392,7 +1396,6 @@
         <div class="slicer-label">Month</div>
         <div class="slicer-list" id="libFilterMonthList"></div>
       </div>
-      <button class="btn" id="libFilterClearBtn" style="width:100%;">Clear All Filters</button>
     </div>
   </div>
 </div>
@@ -1400,6 +1403,7 @@
 <div class="modal-overlay drawer-left" id="planFiltersModal">
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Filters</h2><button class="btn icon" id="closePlanFiltersModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="filter-clear-row"><button class="btn" id="planFilterClearBtn" style="width:100%;">Clear All Filters</button></div>
     <div class="scroll">
       <div class="slicer-group">
         <div class="slicer-label">Sermon</div>
@@ -1417,7 +1421,6 @@
         <div class="slicer-label">Month</div>
         <div class="slicer-list" id="planFilterMonthList"></div>
       </div>
-      <button class="btn" id="planFilterClearBtn" style="width:100%;">Clear All Filters</button>
     </div>
   </div>
 </div>
@@ -2273,12 +2276,52 @@
     const seriesSet = [...new Set(filtered.map(s=>s.series).filter(Boolean))];
     if(seriesSet.length){
       legend.innerHTML = seriesSet.map(sName =>
-        `<div class="plan-legend-item"><span class="plan-legend-dot" style="background:${colorForSeries(sName)}"></span>${escapeHtml(sName)}</div>`
+        `<div class="plan-legend-item" data-series="${escapeAttr(sName)}"><span class="plan-legend-dot" style="background:${colorForSeries(sName)}"></span>${escapeHtml(sName)}</div>`
       ).join('');
     } else {
       legend.innerHTML = '';
     }
   }
+
+  // Tapping a legend series jumps the calendar to that series' nearest entry (relative to
+  // whatever month is currently showing); tapping the same series again cycles forward
+  // chronologically through its remaining (filtered) entries, wrapping back to the first.
+  // The cursor is keyed by series name and persists across clicks/months/filter changes --
+  // if the cursor's date no longer exists in the current filtered set (deleted, or filtered
+  // out), it's simply treated as a fresh start (nearest-to-current-month) rather than erroring.
+  const planLegendCursor = {};
+  function nearestEntryIndex(entries, referenceDate){
+    let bestIdx = 0, bestDiff = Infinity;
+    entries.forEach((s,i)=>{
+      const diff = Math.abs(new Date(s.date+'T00:00:00').getTime() - referenceDate.getTime());
+      if(diff < bestDiff){ bestDiff = diff; bestIdx = i; }
+    });
+    return bestIdx;
+  }
+  function jumpToSeriesEntry(seriesName){
+    const entries = planFilteredSermons()
+      .filter(s => (s.series||'') === seriesName && !!s.date)
+      .sort((a,b)=> a.date.localeCompare(b.date));
+    if(!entries.length) return;
+    const lastDate = planLegendCursor[seriesName];
+    const lastIdx = lastDate ? entries.findIndex(s=>s.date === lastDate) : -1;
+    const idx = lastIdx === -1 ? nearestEntryIndex(entries, planMonth) : (lastIdx + 1) % entries.length;
+    const target = entries[idx];
+    planLegendCursor[seriesName] = target.date;
+    const d = new Date(target.date+'T00:00:00');
+    planMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    renderPlan();
+    const cell = document.querySelector(`.plan-day[data-date="${target.date}"]`);
+    if(cell){
+      cell.classList.add('jump-flash');
+      setTimeout(()=> cell.classList.remove('jump-flash'), 1600);
+    }
+  }
+  document.getElementById('planLegend').addEventListener('click', e=>{
+    const item = e.target.closest('.plan-legend-item');
+    if(!item) return;
+    jumpToSeriesEntry(item.dataset.series);
+  });
 
   function renderPlanFiltersTray(){
     const active = sermons.filter(s=>!s.deleted);
