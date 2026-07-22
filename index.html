@@ -223,7 +223,13 @@
   }
   .sermon-card:hover{ box-shadow:0 3px 10px rgba(0,0,0,0.07); border-color:var(--sage); }
   .sermon-card .info{ flex:1; min-width:0; }
-  .sermon-card .title{ font-family:'Playfair Display',serif; font-weight:600; font-size:17px; margin:0 0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sermon-card .title{ font-family:'Playfair Display',serif; font-weight:600; font-size:17px; margin:0 0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:text; }
+  .sermon-card .title:hover{ text-decoration:underline; text-decoration-style:dotted; text-decoration-color:var(--muted); text-underline-offset:3px; }
+  .sermon-card .title-input{
+    font-family:'Playfair Display',serif; font-weight:600; font-size:17px; margin:0 0 4px; width:100%;
+    background:var(--panel-2); border:1px solid var(--gold-dim); border-radius:5px; padding:1px 5px;
+    color:var(--text); box-shadow:0 0 0 3px var(--gold-soft-bg);
+  }
   .sermon-card .meta{ font-size:12px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap; }
   .tag{ background:var(--gold-soft); color:var(--gold-dim); padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; font-family:'Playfair Display',serif; }
   .tag.conflict-tag{ background:rgba(214,110,40,0.16); color:#b0561f; }
@@ -2124,6 +2130,43 @@
     });
   });
 
+  // Double-click the title to rename in place, right on the Library card -- deliberately not a
+  // new button (the card is already busy) and not a single click either, since single clicks on
+  // list items are cheap/frequent and a stray one renaming a sermon by accident would be a bad
+  // surprise. A double-click is a well-understood "I mean it" gesture (same convention as
+  // renaming a file in Finder/Explorer) that a normal scroll/tap pattern won't trigger by chance.
+  function makeTitleEditable(titleEl, s){
+    titleEl.title = 'Double-click to rename';
+    titleEl.addEventListener('dblclick', ()=>{
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'title-input';
+      input.value = s.title || '';
+      titleEl.replaceWith(input);
+      input.focus();
+      input.select();
+      let settled = false;
+      const commit = ()=>{
+        if(settled) return;
+        settled = true;
+        const next = input.value.trim();
+        if(next && next !== s.title){
+          s.title = next;
+          s.updatedAt = Date.now();
+          persistSermons();
+          renderLibrary();
+        } else {
+          input.replaceWith(titleEl);
+        }
+      };
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', e=>{
+        if(e.key === 'Enter'){ e.preventDefault(); commit(); }
+        else if(e.key === 'Escape'){ settled = true; input.replaceWith(titleEl); }
+      });
+    });
+  }
+
   function makeSermonCard(s){
     const card = document.createElement('div');
     card.className = 'sermon-card';
@@ -2142,6 +2185,7 @@
         ${s.conflictOf ? `<button class="btn icon" data-act="keep-both" title="Keep both permanently as separate sermons">Keep Both</button>` : ''}
         <button class="btn icon danger" data-act="delete" title="Delete">Delete</button>
       </div>`;
+    makeTitleEditable(card.querySelector('.title'), s);
     card.querySelector('[data-act="edit"]').addEventListener('click', ()=> openEditor(s.id));
     card.querySelector('[data-act="present"]').addEventListener('click', ()=> presentSermon(s.id));
     card.querySelector('[data-act="practice"]').addEventListener('click', ()=> practiceSermon(s.id));
@@ -3227,10 +3271,16 @@
 
     const doc = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(sermon.title || 'Sermon')}</title>
     <style>
-      /* Letter page, 1" margins on every side -- matches a standard Word document's default
-         page setup, rather than leaving each browser's own inconsistent print-margin default
-         in charge. */
-      @page{ size: letter; margin: 1in; }
+      /* 1" margins on every side -- matches a standard Word document's default page setup.
+         Deliberately NOT forcing a size:letter rule here: doing so previously may have mismatched
+         the destination printer/driver's own configured page size (e.g. a PDF driver defaulting
+         to something other than US Letter), which is one plausible reason the browser's print
+         dialog was opening with its "Margins" preset on "None" instead of "Default" -- letting
+         the destination's own page size stand, with only the margin explicitly set, avoids that
+         mismatch. Note this only shapes what "Default" margins *means* for this page -- which
+         preset (Default vs. None) the dialog opens on is the browser's own remembered setting,
+         not something CSS/JS can select. */
+      @page{ margin: 1in; }
       *{ box-sizing:border-box; }
       html{ background:#e8e8e8; }
       body{
