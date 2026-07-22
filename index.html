@@ -3988,8 +3988,24 @@
     let swRefreshed = false;
     navigator.serviceWorker.addEventListener('controllerchange', ()=>{
       if(swRefreshed) return;
-      swRefreshed = true;
-      window.location.reload();
+      // Never auto-reload out from under an in-progress Supabase auth redirect -- OAuth's
+      // #access_token=..., or a magic-link/recovery/PKCE redirect's ?code=... -- since a reload
+      // firing mid-redirect can race the auth client's own session-detection-and-persist step,
+      // stranding a sign-in as memory-only (gone on the very next refresh) or losing it outright.
+      // This SW-update reload can land at literally any moment relative to that redirect -- new
+      // app versions ship constantly during active development, a redirect back from Google/an
+      // email link is exactly the kind of moment a new version could already be waiting to take
+      // over. Deferred and re-checked rather than skipped outright, since this reload is also
+      // what keeps a long-open tab from running stale code indefinitely; a deadline forces it
+      // through regardless in case this check is ever wrong about what a redirect looks like.
+      const deadline = Date.now() + 8000;
+      const reloadWhenSafe = () => {
+        const looksLikeAuthRedirect = /access_token=|refresh_token=|type=(magiclink|recovery|signup)|[?&]code=/.test(window.location.href);
+        if(looksLikeAuthRedirect && Date.now() < deadline){ setTimeout(reloadWhenSafe, 400); return; }
+        swRefreshed = true;
+        window.location.reload();
+      };
+      reloadWhenSafe();
     });
   }
 
@@ -4091,6 +4107,17 @@
   const sb = (typeof window.supabase !== 'undefined')
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
+  // Diagnostic for the reported "sign-in doesn't survive a refresh" bug -- cheap, always-on, and
+  // deliberately not gated behind a debug flag, since the whole problem with that report so far is
+  // that it isn't reproducible on demand. If it happens again, checking the console for this line
+  // says definitively whether a session was actually sitting in localStorage on that load or not,
+  // instead of guessing from symptoms alone.
+  if(sb){
+    try{
+      const authKey = Object.keys(localStorage).find(k => /^sb-.*-auth-token$/.test(k));
+      console.log('[auth] stored session on load:', authKey ? 'present (' + authKey + ')' : 'absent');
+    } catch(e){ console.log('[auth] localStorage check threw', e); }
+  }
 
   /* ============ REVENUECAT (Phase 4 billing) ============
      The app itself is a plain paid App Store/Play Store listing, not an in-app purchase -- Apple/
