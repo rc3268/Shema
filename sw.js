@@ -1,11 +1,10 @@
-const CACHE_NAME = 'shema-cache-v74';
+const CACHE_NAME = 'shema-cache-v76';
 const ASSETS = [
   './',
   './index.html',
   './privacy.html',
   './terms.html',
   './manifest.json',
-  './data/kjv.json',
   './vendor/supabase.js',
   './shema-icon-192.png',
   './shema-icon-512.png',
