@@ -4742,18 +4742,29 @@
         if(cfg.beforePush) await cfg.beforePush(r, userId);
         const { error: upErr } = await sb.from(cfg.table).upsert(cfg.toRemote(r, userId));
         if(!upErr) markSynced(cfg.table, r.id, r.updatedAt||0);
-        else if(upErr.code === '42501' && !syncedAt(cfg.table, r.id)){
+        else if(upErr.code === '42501'){
           // Postgres code 42501 on an upsert means RLS rejected it because a row with this exact
           // id already exists under a *different* user_id -- likely a pre-crypto.randomUUID id
           // (a low-entropy Date.now()+Math.random() fallback, from before a secure context was
           // guaranteed) colliding with an unrelated row from earlier testing. This is correct,
           // intentional RLS behavior, not a bug -- Postgres is rightly refusing to let this
-          // account overwrite a row it doesn't own. Since this record has never itself synced
-          // (checked above), there's no remote counterpart of its own to reconcile with, so the
-          // safe recovery is to give it a fresh id and let the next pass insert it as a brand new
-          // row under this id instead of retrying the same doomed update forever.
+          // account overwrite a row it doesn't own -- and there is no scenario where retrying the
+          // same id later succeeds without someone else deleting that row server-side, so the
+          // only real recovery is a fresh id, unconditionally.
+          //
+          // This used to also require `!syncedAt(cfg.table, r.id)` (only reassign a record that
+          // had never itself synced), on the theory that a record with a local syncedAt entry
+          // must have synced successfully before and so couldn't plausibly collide. That's wrong:
+          // `syncMeta` (shema_sync_meta_v1) is one localStorage key with no per-account scoping,
+          // so a device that ever synced this exact id under a *different* signed-in account (a
+          // real scenario when testing with more than one account on one browser) keeps a stale,
+          // truthy watermark for it forever -- permanently blocking this exact recovery for the
+          // one id it exists to fix. Confirmed live: a real user hit this precise id
+          // (mr9k00kda83hwz) failing with 42501 on every single pass, never recovering, on a
+          // device already confirmed running the build that shipped this fix.
           const oldId = r.id;
           r.id = uid();
+          if(syncMeta[cfg.table]) delete syncMeta[cfg.table][oldId];
           if(cfg.table === 'sermons'){
             notesForSermon(oldId).forEach(n => n.sermonId = r.id);
             persistPracticeNotes();
