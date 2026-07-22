@@ -260,7 +260,13 @@
     font-family:'Playfair Display',serif; font-size:12px; font-weight:700; letter-spacing:0.5px;
     color:var(--muted); text-transform:uppercase; padding:14px 4px 6px;
   }
-  #seriesFilter{ display:flex; gap:8px; padding:0 14px 12px; overflow-x:auto; flex-shrink:0; }
+  #libraryFilterRow{ display:flex; align-items:center; gap:8px; padding:0 14px 12px; flex-shrink:0; }
+  #yearFilter{
+    flex-shrink:0; background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+    border-radius:20px; padding:6px 10px; font-size:12px; font-family:inherit; font-weight:600;
+    -webkit-appearance:none; appearance:none;
+  }
+  #seriesFilter{ display:flex; gap:8px; overflow-x:auto; flex:1; min-width:0; }
   .chip{ background:var(--panel-2); border:1px solid var(--line); color:var(--muted); padding:6px 14px; border-radius:20px; font-size:12px; white-space:nowrap; cursor:pointer; }
   .chip.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); }
 
@@ -867,7 +873,10 @@
         <button data-sort="date">By Date</button>
       </div>
     </div>
-    <div id="seriesFilter"></div>
+    <div id="libraryFilterRow">
+      <select id="yearFilter" title="Filter by year"><option value="">All years</option></select>
+      <div id="seriesFilter"></div>
+    </div>
     <div class="scroll"><div id="libraryList"></div></div>
   </div>
 
@@ -1636,6 +1645,7 @@
 
   /* ============ LIBRARY ============ */
   let activeSeriesFilter = null;
+  let activeYearFilter = null; // a 4-digit year string, or null for all years
   let librarySortMode = 'recent'; // 'recent' | 'date'
   let librarySearchQuery = '';
 
@@ -1718,6 +1728,24 @@
     });
   });
 
+  // Narrowing to a year first is what actually scales to a library spanning decades -- the
+  // series filter alone doesn't help for undated one-off sermons or a series that itself spans
+  // several years. A <select> rather than another chip row deliberately, since a chip row that
+  // has to hold 20+ years (one per year of ministry) stops being scannable long before a
+  // dropdown does.
+  function renderYearFilter(){
+    const years = [...new Set(sermons.filter(s=>!s.deleted && s.date).map(s=>s.date.slice(0,4)))].sort((a,b)=>b.localeCompare(a));
+    const sel = document.getElementById('yearFilter');
+    if(years.length <= 1){ sel.style.display = 'none'; activeYearFilter = null; return; }
+    sel.style.display = '';
+    sel.innerHTML = '<option value="">All years</option>' + years.map(y=>`<option value="${escapeHtml(y)}">${escapeHtml(y)}</option>`).join('');
+    sel.value = activeYearFilter || '';
+  }
+  document.getElementById('yearFilter').addEventListener('change', e=>{
+    activeYearFilter = e.target.value || null;
+    renderLibrary();
+  });
+
   function renderSeriesFilter(){
     const seriesSet = [...new Set(sermons.filter(s=>!s.deleted).map(s=>s.series).filter(Boolean))];
     const wrap = document.getElementById('seriesFilter');
@@ -1796,15 +1824,17 @@
   }
 
   function renderLibrary(){
+    renderYearFilter();
     renderSeriesFilter();
     renderBackupStatus();
     const list = document.getElementById('libraryList');
     let items = sermons.filter(s=>!s.deleted);
+    if(activeYearFilter) items = items.filter(s=>s.date && s.date.slice(0,4)===activeYearFilter);
     if(activeSeriesFilter) items = items.filter(s=>s.series===activeSeriesFilter);
     const q = librarySearchQuery.trim().toLowerCase();
     if(q) items = items.filter(s=>sermonMatchesQuery(s, q));
     if(items.length===0){
-      list.innerHTML = (q || activeSeriesFilter)
+      list.innerHTML = (q || activeSeriesFilter || activeYearFilter)
         ? `<div id="emptyLibrary">No sermons match. Try a different search or filter.</div>`
         : `<div id="emptyLibrary">No sermons yet.<br>Tap "+ New" to start prepping your first message.</div>`;
       return;
