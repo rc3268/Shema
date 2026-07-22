@@ -260,7 +260,13 @@
     font-family:'Playfair Display',serif; font-size:12px; font-weight:700; letter-spacing:0.5px;
     color:var(--muted); text-transform:uppercase; padding:14px 4px 6px;
   }
-  #seriesFilter{ display:flex; gap:8px; padding:0 14px 12px; overflow-x:auto; flex-shrink:0; }
+  #libraryFilterRow{ display:flex; align-items:center; gap:8px; padding:0 14px 12px; flex-shrink:0; }
+  #yearFilter{
+    flex-shrink:0; background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
+    border-radius:20px; padding:6px 10px; font-size:12px; font-family:inherit; font-weight:600;
+    -webkit-appearance:none; appearance:none;
+  }
+  #seriesFilter{ display:flex; gap:8px; overflow-x:auto; flex:1; min-width:0; }
   .chip{ background:var(--panel-2); border:1px solid var(--line); color:var(--muted); padding:6px 14px; border-radius:20px; font-size:12px; white-space:nowrap; cursor:pointer; }
   .chip.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); }
 
@@ -526,6 +532,25 @@
   .plan-more{ font-size:9px; color:var(--muted); padding:0 2px; }
   #planLegend{ display:flex; gap:10px; flex-wrap:wrap; padding:10px; }
   .plan-legend-item{ display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+  #planSearchRow{ padding:8px 14px 0; flex-shrink:0; }
+  #planSearchRow input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:9px 12px; font-size:14px; font-family:inherit;
+    -webkit-appearance:none; appearance:none;
+  }
+  #planSearchRow input::placeholder{ color:var(--muted); }
+  #planSearchResults{ display:none; flex-direction:column; gap:4px; padding:8px 14px; flex-shrink:0; max-height:220px; overflow-y:auto; }
+  #planSearchResults.open{ display:flex; }
+  .plan-search-result{
+    display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line);
+    border-radius:9px; padding:8px 10px; cursor:pointer; text-align:left;
+  }
+  .plan-search-result:hover{ border-color:var(--sage); }
+  .plan-search-result .psr-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .plan-search-result .psr-title{ font-weight:600; font-size:13px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .plan-search-result .psr-date{ font-size:11px; color:var(--muted); flex-shrink:0; }
+  .plan-search-empty{ font-size:12px; color:var(--muted); padding:4px 2px; }
+  .plan-day.search-match{ border-color:var(--gold-dim); box-shadow:0 0 0 2px var(--gold-soft); }
   .plan-legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   #toastHost{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999;
@@ -719,7 +744,7 @@
   .practice-section-content .line{ cursor:pointer; border-radius:6px; transition:background .12s ease; }
   .practice-section-content .line:active{ background:var(--panel-2); }
   .line.has-note::before{ content:''; display:inline-block; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--gold); vertical-align:middle; }
-  .practice-note-excerpt{ font-size:13px; color:var(--muted); font-style:italic; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+  .practice-note-excerpt{ font-size:13px; color:var(--muted); font-style:italic; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--line); max-height:120px; overflow-y:auto; white-space:pre-wrap; }
   .practice-note-input{
     width:100%; box-sizing:border-box; background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
     padding:10px 12px; font-size:15px; font-family:inherit; color:var(--text); resize:vertical;
@@ -867,7 +892,10 @@
         <button data-sort="date">By Date</button>
       </div>
     </div>
-    <div id="seriesFilter"></div>
+    <div id="libraryFilterRow">
+      <select id="yearFilter" title="Filter by year"><option value="">All years</option></select>
+      <div id="seriesFilter"></div>
+    </div>
     <div class="scroll"><div id="libraryList"></div></div>
   </div>
 
@@ -881,6 +909,8 @@
         <button class="btn icon" id="planNextBtn" title="Next month"><img class="mono-ic" src="icons/plannextbtn.png" data-light="icons/plannextbtn.png" data-dark="icons/plannextbtn-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
       </div>
     </div>
+    <div id="planSearchRow"><input type="search" id="planSearchInput" placeholder="Search series or sermon titles…"></div>
+    <div id="planSearchResults"></div>
     <div class="scroll">
       <div id="planWeekdays">
         <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
@@ -1485,42 +1515,73 @@
     persistHistory();
   }
 
-  // Migrate older sermons (separate line/bullet/run types, a numeric indent field, a fromIllustration
-  // flag) onto the current 4-type model (block/quiet/scripture/illustration), where bullets and
-  // indentation are just real HTML structure inside a block rather than separate fields.
-  function normalizeItem(it){
-    if(it.fromIllustration){ it.type = 'illustration'; delete it.fromIllustration; }
-    if(it.type === 'bullet'){
-      it.text = '<ul><li>' + seedRichHtml(it.text) + '</li></ul>';
-      it.type = 'block';
-    } else if(it.type === 'run'){
-      it.text = '<strong>' + seedRichHtml(it.text) + '</strong>';
-      it.type = 'block';
-    } else if(it.type === 'para' || !it.type){
-      it.type = 'block';
+  // ---- Versioned schema migration -----------------------------------------------------------
+  // A record's `schemaVersion` says which shape it was last written in; SCHEMA[kind].current is
+  // the shape this build reads/writes. migrateToCurrent() walks a record forward one version at
+  // a time, running only the steps it actually needs -- a sermon from build N runs every step
+  // from N to current in order (so skipping an app update never skips a migration), while a
+  // sermon already on the current version costs one number comparison and nothing else. That
+  // last part matters at scale: with a library of decades of sermons, re-running full-item
+  // migration work on every record on every load (the old, unconditional `normalizeItem` on
+  // every item every time) is wasted work for the overwhelming majority that are already current.
+  // Adding a future migration is: bump the relevant `current`, add one `migrations[oldVersion]`
+  // function -- never touch this walker or any other migration step.
+  // Templates aren't in here -- their shape (name/desc/sections-as-plain-strings) has never
+  // changed and carries no schemaVersion field at all; if that ever changes, give it the same
+  // `current`/`migrations` entry and a normalizeTemplate() wrapper, following this exact pattern.
+  const SCHEMA = {
+    sermon: { current: 2, migrations: { 1: migrateSermonV1toV2 } },
+    illustration: { current: 1, migrations: {} },
+  };
+  function migrateToCurrent(kind, record){
+    const spec = SCHEMA[kind];
+    let v = record.schemaVersion || 1;
+    while(v < spec.current){
+      const step = spec.migrations[v];
+      if(step) step(record);
+      v++;
     }
-    if(!['block','quiet','scripture','illustration'].includes(it.type)) it.type = 'block';
-    it.text = sanitizeRichText(seedRichHtml(it.text));
-    delete it.indent;
-    return it;
+    record.schemaVersion = spec.current;
+    return record;
+  }
+  // v1 -> v2: collapses the old separate line/bullet/run types, a numeric indent field, and a
+  // fromIllustration flag onto the current 4-type model (block/quiet/scripture/illustration),
+  // where bullets and indentation are just real HTML structure inside a block rather than
+  // separate fields. Only ever runs once per record, the first time it's loaded on a build that
+  // understands v2 -- not on every load forever the way the coercion it replaces used to.
+  function migrateSermonV1toV2(s){
+    s.sections.forEach(sec => sec.items.forEach(it => {
+      if(it.fromIllustration){ it.type = 'illustration'; delete it.fromIllustration; }
+      if(it.type === 'bullet'){
+        it.text = '<ul><li>' + seedRichHtml(it.text) + '</li></ul>';
+        it.type = 'block';
+      } else if(it.type === 'run'){
+        it.text = '<strong>' + seedRichHtml(it.text) + '</strong>';
+        it.type = 'block';
+      } else if(it.type === 'para' || !it.type){
+        it.type = 'block';
+      }
+      if(!['block','quiet','scripture','illustration'].includes(it.type)) it.type = 'block';
+      delete it.indent;
+    }));
   }
   function normalizeSermon(s){
-    if(!s.schemaVersion) s.schemaVersion = 1;
-    // A restored backup can come from a very old build whose export shape doesn't match this
-    // one -- if `sections` (or a section's `items`) isn't actually an array, coercing to empty
-    // here means the sermon loses that stray content but the app (and everything else in it)
-    // keeps working, instead of a `.forEach` on a non-array throwing and taking the whole load
-    // down with it.
+    // Shape safety runs unconditionally, regardless of the declared schemaVersion -- a restored
+    // backup or a hand-edited export can claim any version while still not actually matching it,
+    // and a corrupt/foreign shape here (e.g. `sections` isn't an array) must degrade gracefully
+    // (losing that stray content) rather than let a `.forEach` on a non-array throw and take the
+    // whole app load down with it. This is defensive coercion, not a migration step, so it isn't
+    // gated by version and isn't in SCHEMA.sermon.migrations.
     if(!Array.isArray(s.sections)) s.sections = [];
-    s.sections.forEach(sec => {
-      if(!Array.isArray(sec.items)) sec.items = [];
-      sec.items.forEach(normalizeItem);
-    });
+    s.sections.forEach(sec => { if(!Array.isArray(sec.items)) sec.items = []; });
+    migrateToCurrent('sermon', s);
+    // Rich-text sanitization is hygiene, not a migration -- always reapplied, cheap, and
+    // idempotent, so it stays outside the version gate too.
+    s.sections.forEach(sec => sec.items.forEach(it => { it.text = sanitizeRichText(seedRichHtml(it.text)); }));
     return s;
   }
   function normalizeIllustration(ill){
-    if(!ill.schemaVersion) ill.schemaVersion = 1;
-    return ill;
+    return migrateToCurrent('illustration', ill);
   }
   sermons.forEach(normalizeSermon);
   illustrations.forEach(normalizeIllustration);
@@ -1557,7 +1618,7 @@
   function newSermonFromTemplate(tpl, presetDate){
     return {
       id: uid(),
-      schemaVersion: 1,
+      schemaVersion: SCHEMA.sermon.current,
       title: '',
       series: '',
       date: presetDate || new Date().toISOString().slice(0,10),
@@ -1605,6 +1666,7 @@
 
   /* ============ LIBRARY ============ */
   let activeSeriesFilter = null;
+  let activeYearFilter = null; // a 4-digit year string, or null for all years
   let librarySortMode = 'recent'; // 'recent' | 'date'
   let librarySearchQuery = '';
 
@@ -1687,6 +1749,24 @@
     });
   });
 
+  // Narrowing to a year first is what actually scales to a library spanning decades -- the
+  // series filter alone doesn't help for undated one-off sermons or a series that itself spans
+  // several years. A <select> rather than another chip row deliberately, since a chip row that
+  // has to hold 20+ years (one per year of ministry) stops being scannable long before a
+  // dropdown does.
+  function renderYearFilter(){
+    const years = [...new Set(sermons.filter(s=>!s.deleted && s.date).map(s=>s.date.slice(0,4)))].sort((a,b)=>b.localeCompare(a));
+    const sel = document.getElementById('yearFilter');
+    if(years.length <= 1){ sel.style.display = 'none'; activeYearFilter = null; return; }
+    sel.style.display = '';
+    sel.innerHTML = '<option value="">All years</option>' + years.map(y=>`<option value="${escapeHtml(y)}">${escapeHtml(y)}</option>`).join('');
+    sel.value = activeYearFilter || '';
+  }
+  document.getElementById('yearFilter').addEventListener('change', e=>{
+    activeYearFilter = e.target.value || null;
+    renderLibrary();
+  });
+
   function renderSeriesFilter(){
     const seriesSet = [...new Set(sermons.filter(s=>!s.deleted).map(s=>s.series).filter(Boolean))];
     const wrap = document.getElementById('seriesFilter');
@@ -1765,15 +1845,17 @@
   }
 
   function renderLibrary(){
+    renderYearFilter();
     renderSeriesFilter();
     renderBackupStatus();
     const list = document.getElementById('libraryList');
     let items = sermons.filter(s=>!s.deleted);
+    if(activeYearFilter) items = items.filter(s=>s.date && s.date.slice(0,4)===activeYearFilter);
     if(activeSeriesFilter) items = items.filter(s=>s.series===activeSeriesFilter);
     const q = librarySearchQuery.trim().toLowerCase();
     if(q) items = items.filter(s=>sermonMatchesQuery(s, q));
     if(items.length===0){
-      list.innerHTML = (q || activeSeriesFilter)
+      list.innerHTML = (q || activeSeriesFilter || activeYearFilter)
         ? `<div id="emptyLibrary">No sermons match. Try a different search or filter.</div>`
         : `<div id="emptyLibrary">No sermons yet.<br>Tap "+ New" to start prepping your first message.</div>`;
       return;
@@ -1847,6 +1929,7 @@
       const isOutside = cellDate.getMonth() !== firstOfMonth.getMonth();
       const cell = document.createElement('div');
       cell.className = 'plan-day' + (isOutside ? ' outside' : '') + (dateStr===todayStr ? ' today' : '');
+      cell.dataset.date = dateStr;
       const entries = byDate[dateStr] || [];
       let entriesHtml = '';
       entries.slice(0,2).forEach(s=>{
@@ -1877,6 +1960,60 @@
       legend.innerHTML = '';
     }
   }
+
+  // Search, not a drag-reorderable list -- decided directly with the user: across decades of
+  // series, clicking prev/next through hundreds of months to find one sermon doesn't scale, but
+  // a sermon's actual scheduled date is meaningful information worth keeping visible, so search
+  // jumps the calendar TO the match's month rather than replacing the calendar with a plain list.
+  let planHighlightTimer = null;
+  function jumpToPlanSermon(s){
+    if(!s.date) return;
+    planMonth = new Date(s.date + 'T00:00:00');
+    planMonth.setDate(1);
+    planMonth.setHours(0,0,0,0);
+    renderPlan();
+    document.getElementById('planSearchResults').classList.remove('open');
+    document.getElementById('planSearchInput').value = '';
+    planSearchQuery = '';
+    const cell = findPlanDayCell(s.date);
+    if(cell){
+      clearTimeout(planHighlightTimer);
+      document.querySelectorAll('.plan-day.search-match').forEach(el => el.classList.remove('search-match'));
+      cell.classList.add('search-match');
+      cell.scrollIntoView({ block:'center', behavior:'smooth' });
+      planHighlightTimer = setTimeout(()=> cell.classList.remove('search-match'), 3000);
+    }
+  }
+  function findPlanDayCell(dateStr){
+    return [...document.querySelectorAll('#planGrid .plan-day')].find(el => el.dataset.date === dateStr) || null;
+  }
+  let planSearchQuery = '';
+  function renderPlanSearchResults(){
+    const wrap = document.getElementById('planSearchResults');
+    const q = planSearchQuery.trim().toLowerCase();
+    if(!q){ wrap.classList.remove('open'); wrap.innerHTML = ''; return; }
+    const matches = sermons.filter(s => !s.deleted && (
+      (s.title||'').toLowerCase().includes(q) || (s.series||'').toLowerCase().includes(q)
+    )).sort((a,b) => (a.date||'').localeCompare(b.date||'')).slice(0,30);
+    wrap.classList.add('open');
+    if(!matches.length){ wrap.innerHTML = `<div class="plan-search-empty">No series or sermon titles match "${escapeHtml(planSearchQuery.trim())}".</div>`; return; }
+    wrap.innerHTML = '';
+    matches.forEach(s=>{
+      const row = document.createElement('div');
+      row.className = 'plan-search-result';
+      const dateStr = s.date ? new Date(s.date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'No date';
+      row.innerHTML = `
+        <span class="psr-dot" style="background:${colorForSeries(s.series)}"></span>
+        <span class="psr-title">${escapeHtml(s.title || 'Untitled Sermon')}${s.series?' · '+escapeHtml(s.series):''}</span>
+        <span class="psr-date">${escapeHtml(dateStr)}</span>`;
+      row.addEventListener('click', ()=> jumpToPlanSermon(s));
+      wrap.appendChild(row);
+    });
+  }
+  document.getElementById('planSearchInput').addEventListener('input', e=>{
+    planSearchQuery = e.target.value;
+    renderPlanSearchResults();
+  });
 
   document.getElementById('planPrevBtn').addEventListener('click', ()=>{
     planMonth.setMonth(planMonth.getMonth() - 1);
@@ -3188,7 +3325,7 @@
       const ill = illustrations.find(x=>x.id===editingIllustId);
       ill.title=title; ill.tags=tags; ill.body=body; ill.imageData=editingIllustImage; ill.updatedAt=Date.now();
     } else {
-      illustrations.push({ id:uid(), schemaVersion:1, title, tags, body, imageData:editingIllustImage, updatedAt:Date.now() });
+      illustrations.push({ id:uid(), schemaVersion:SCHEMA.illustration.current, title, tags, body, imageData:editingIllustImage, updatedAt:Date.now() });
     }
     persistIllust();
     illustModal.classList.remove('open');
@@ -3842,7 +3979,11 @@
     practiceNoteEditingItemId = item.id;
     practiceNoteEditingSectionId = section.id;
     const existing = noteForItem(practiceSermonId, item.id);
-    document.getElementById('practiceNoteExcerpt').textContent = htmlToPlainText(item.text).slice(0, 140) || '(no text)';
+    // Full text, not a truncated snippet -- a note attached to a long paragraph needs the whole
+    // thing visible to actually tell what the note is about (the excerpt scrolls on its own if
+    // it's long, see .practice-note-excerpt's max-height, so this can't push the Save button
+    // off-screen the way an unbounded excerpt inside the popup's own scroll area would).
+    document.getElementById('practiceNoteExcerpt').textContent = htmlToPlainText(item.text) || '(no text)';
     document.getElementById('practiceNoteInput').value = existing ? existing.note : '';
     document.getElementById('practiceNoteDeleteBtn').style.display = existing ? '' : 'none';
     if(practiceRunning){
@@ -3957,8 +4098,24 @@
     let swRefreshed = false;
     navigator.serviceWorker.addEventListener('controllerchange', ()=>{
       if(swRefreshed) return;
-      swRefreshed = true;
-      window.location.reload();
+      // Never auto-reload out from under an in-progress Supabase auth redirect -- OAuth's
+      // #access_token=..., or a magic-link/recovery/PKCE redirect's ?code=... -- since a reload
+      // firing mid-redirect can race the auth client's own session-detection-and-persist step,
+      // stranding a sign-in as memory-only (gone on the very next refresh) or losing it outright.
+      // This SW-update reload can land at literally any moment relative to that redirect -- new
+      // app versions ship constantly during active development, a redirect back from Google/an
+      // email link is exactly the kind of moment a new version could already be waiting to take
+      // over. Deferred and re-checked rather than skipped outright, since this reload is also
+      // what keeps a long-open tab from running stale code indefinitely; a deadline forces it
+      // through regardless in case this check is ever wrong about what a redirect looks like.
+      const deadline = Date.now() + 8000;
+      const reloadWhenSafe = () => {
+        const looksLikeAuthRedirect = /access_token=|refresh_token=|type=(magiclink|recovery|signup)|[?&]code=/.test(window.location.href);
+        if(looksLikeAuthRedirect && Date.now() < deadline){ setTimeout(reloadWhenSafe, 400); return; }
+        swRefreshed = true;
+        window.location.reload();
+      };
+      reloadWhenSafe();
     });
   }
 
@@ -4060,6 +4217,17 @@
   const sb = (typeof window.supabase !== 'undefined')
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
+  // Diagnostic for the reported "sign-in doesn't survive a refresh" bug -- cheap, always-on, and
+  // deliberately not gated behind a debug flag, since the whole problem with that report so far is
+  // that it isn't reproducible on demand. If it happens again, checking the console for this line
+  // says definitively whether a session was actually sitting in localStorage on that load or not,
+  // instead of guessing from symptoms alone.
+  if(sb){
+    try{
+      const authKey = Object.keys(localStorage).find(k => /^sb-.*-auth-token$/.test(k));
+      console.log('[auth] stored session on load:', authKey ? 'present (' + authKey + ')' : 'absent');
+    } catch(e){ console.log('[auth] localStorage check threw', e); }
+  }
 
   /* ============ REVENUECAT (Phase 4 billing) ============
      The app itself is a plain paid App Store/Play Store listing, not an in-app purchase -- Apple/
@@ -4313,6 +4481,26 @@
   function syncedAt(table, id){ return (syncMeta[table] && syncMeta[table][id]) || 0; }
   function markSynced(table, id, ts){ if(!syncMeta[table]) syncMeta[table] = {}; syncMeta[table][id] = ts; }
 
+  // Deep-equal with a canonical key order, so it doesn't matter that a locally-edited object and
+  // one freshly rebuilt by fromRemote() can have their keys in different insertion order -- a
+  // plain JSON.stringify comparison would see those as different even when every value matches.
+  // Used to tell a *real* content conflict (two devices actually changed different things) apart
+  // from two timestamps that merely both moved past the last sync watermark with no real change
+  // in between (e.g. the same edit reaching the server from two devices, or a save that only ever
+  // touched bookkeeping fields) -- see syncOneTable's pull loop.
+  function deepEqualIgnoring(a, b, ignoreKeys){
+    function clean(v){
+      if(Array.isArray(v)) return v.map(clean);
+      if(v && typeof v === 'object'){
+        const out = {};
+        Object.keys(v).sort().forEach(k => { if(!ignoreKeys.includes(k)) out[k] = clean(v[k]); });
+        return out;
+      }
+      return v;
+    }
+    return JSON.stringify(clean(a)) === JSON.stringify(clean(b));
+  }
+
   // Illustration images ride along as a separate Storage object, not a column -- a base64 image
   // in a jsonb/text column would blow through Supabase's free-tier row/storage limits fast (see
   // context.md). The local `imageData` (base64) is the offline-first source of truth and is
@@ -4509,15 +4697,34 @@
           const localChanged = (local.updatedAt||0) > lastSynced;
           const remoteChanged = (r.updated_at||0) > lastSynced;
           if(remoteChanged && localChanged){
-            const loserCopy = JSON.parse(JSON.stringify(local));
-            loserCopy.id = uid();
-            loserCopy.conflictOf = r.id;
-            loserCopy.title = (loserCopy.title || 'Untitled') + ' (synced copy)';
-            loserCopy.updatedAt = Date.now();
-            localList.push(loserCopy);
-            Object.assign(local, cfg.fromRemote(r));
-            markSynced(cfg.table, r.id, r.updated_at||0);
-            changed = true;
+            const incoming = cfg.fromRemote(r);
+            // `deleted` coerced to a real boolean on both sides before comparing -- a local
+            // record that's never been through a remote round-trip simply omits the key rather
+            // than carrying an explicit `false` (fromRemote always sets one), which would
+            // otherwise register as a content difference despite meaning the same thing.
+            const localForCompare = { ...local, deleted: !!local.deleted };
+            const incomingForCompare = { ...incoming, deleted: !!incoming.deleted };
+            if(deepEqualIgnoring(localForCompare, incomingForCompare, ['id','updatedAt','schemaVersion','conflictOf'])){
+              // Both sides changed since the last sync watermark, but landed on identical content
+              // -- not a real conflict (the classic false positive: the same edit reaching the
+              // server from two devices, or a save that only ever touched a bookkeeping field).
+              // Take whichever timestamp is newer with no duplicate card, instead of always
+              // cloning just because both timestamps moved.
+              if((r.updated_at||0) >= (local.updatedAt||0)) Object.assign(local, incoming);
+              markSynced(cfg.table, r.id, Math.max(r.updated_at||0, local.updatedAt||0));
+              changed = true;
+            } else {
+              const loserCopy = JSON.parse(JSON.stringify(local));
+              loserCopy.id = uid();
+              loserCopy.conflictOf = r.id;
+              const nameKey = ('title' in loserCopy) ? 'title' : 'name';
+              loserCopy[nameKey] = (loserCopy[nameKey] || 'Untitled') + ' (synced copy)';
+              loserCopy.updatedAt = Date.now();
+              localList.push(loserCopy);
+              Object.assign(local, incoming);
+              markSynced(cfg.table, r.id, r.updated_at||0);
+              changed = true;
+            }
           } else if(remoteChanged && !localChanged){
             Object.assign(local, cfg.fromRemote(r));
             markSynced(cfg.table, r.id, r.updated_at||0);
