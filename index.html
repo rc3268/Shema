@@ -1209,7 +1209,7 @@
     <div class="modal-sheet-header"><h2>Import Notes</h2><button class="btn icon" id="closeImportModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
     <div class="scroll" style="padding:0 18px 18px; display:flex; flex-direction:column; flex:1; min-height:0;">
       <div style="font-size:12px;color:var(--muted); margin-bottom:10px; line-height:1.5;">
-        Paste straight from Word, Google Docs, or Pages — bold, italics, underline, and lists carry over (color and font always match Shema). Or upload a .txt, .md, or .html file. Click <b>+ Section Break</b> wherever a new Prepare section should start. A direct .docx upload isn't supported yet — save as a web page (.html) or just copy/paste instead.
+        Paste straight from Word, Google Docs, or Pages — bold, italics, underline, and lists carry over (color and font always match Shema). Or upload a <b>.docx</b>, .txt, .md, or .html file. Word <b>headings</b> become section breaks and each paragraph becomes its own block; use <b>+ Section Break</b> to mark any other spot where a new Prepare section should start.
       </div>
       <div id="importToolbar">
         <button data-cmd="bold" title="Bold"><strong>B</strong></button>
@@ -1223,8 +1223,8 @@
         <span class="toolbar-divider-h"></span>
         <button id="importBreakBtn">+ Section Break</button>
         <span class="toolbar-divider-h"></span>
-        <button id="importUploadBtn" title="Upload a .txt, .md, or .html file">Upload File</button>
-        <input type="file" id="importFileInput" accept=".txt,.md,.markdown,.html,.htm" style="display:none;">
+        <button id="importUploadBtn" title="Upload a .docx, .txt, .md, or .html file">Upload File</button>
+        <input type="file" id="importFileInput" accept=".docx,.txt,.md,.markdown,.html,.htm" style="display:none;">
       </div>
       <div id="importStage" class="item-text" contenteditable="true" data-placeholder="Paste your sermon notes here, or use Upload File above…"></div>
       <button class="btn gold" id="importApplyBtn" style="margin-top:12px;">Import into Sermon</button>
@@ -3360,6 +3360,181 @@
     return `<div class="import-break" contenteditable="false" data-title="${escapeAttr(title||'')}" data-brk="${id}">${label}<span class="brk-del" data-brk-del="${id}">✕</span></div>`;
   }
 
+  /* ---- Native .docx import ---------------------------------------------------------------
+     A .docx is a ZIP whose word/document.xml holds the text. We read it entirely in-app with
+     no libraries: the ZIP central directory is parsed by hand, and DEFLATE-compressed entries
+     are inflated with the platform's own DecompressionStream('deflate-raw') -- CSP-safe (no
+     external host, no eval). Available in modern Chromium and iOS 16.4+ WebKit; the upload
+     handler feature-detects it and falls back to a "copy/paste instead" message if absent.
+     Word Heading/Title paragraphs become section-break markers; every other paragraph becomes
+     its own block; w:b/w:i/w:u become strong/em/u; numbered vs bulleted lists are read from
+     numbering.xml. Tables degrade to one line per row (cells joined) rather than being lost. */
+  const WORD_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  function wchild(el, local){ if(!el) return null; for(let c=el.firstElementChild;c;c=c.nextElementSibling){ if(c.localName===local) return c; } return null; }
+  function wchildren(el, local){ const o=[]; if(!el) return o; for(let c=el.firstElementChild;c;c=c.nextElementSibling){ if(c.localName===local) o.push(c); } return o; }
+  function wattr(el, name){ if(!el || !el.getAttributeNS) return null; return el.getAttributeNS(WORD_NS,name) || el.getAttribute('w:'+name) || el.getAttribute(name); }
+  // A toggle element (w:b/w:i/w:u) is "on" when present with no val, or a val that isn't an
+  // explicit off ("false"/"0"/"off"/"none" -- the last covers w:u w:val="none").
+  function wToggleOn(el){ if(!el) return false; const v=wattr(el,'val'); return (v==null) || !['false','0','off','none'].includes(String(v).toLowerCase()); }
+
+  async function inflateRaw(bytes){
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  // Minimal ZIP reader: walk the central directory, return one named entry's bytes (inflated).
+  async function unzipEntry(arrayBuffer, name){
+    const dv = new DataView(arrayBuffer);
+    const u8 = new Uint8Array(arrayBuffer);
+    const dec = new TextDecoder();
+    let eocd = -1;
+    for(let i = u8.length - 22; i >= 0 && i >= u8.length - 22 - 65536; i--){
+      if(dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+    }
+    if(eocd < 0) throw new Error('not a zip');
+    const cdCount = dv.getUint16(eocd + 10, true);
+    let off = dv.getUint32(eocd + 16, true);
+    for(let e = 0; e < cdCount; e++){
+      if(dv.getUint32(off, true) !== 0x02014b50) break;
+      const method = dv.getUint16(off + 10, true);
+      const compSize = dv.getUint32(off + 20, true);
+      const nameLen = dv.getUint16(off + 28, true);
+      const extraLen = dv.getUint16(off + 30, true);
+      const commentLen = dv.getUint16(off + 32, true);
+      const lho = dv.getUint32(off + 42, true);
+      const fname = dec.decode(u8.subarray(off + 46, off + 46 + nameLen));
+      if(fname === name){
+        const lNameLen = dv.getUint16(lho + 26, true);
+        const lExtraLen = dv.getUint16(lho + 28, true);
+        const dataStart = lho + 30 + lNameLen + lExtraLen;
+        const data = u8.subarray(dataStart, dataStart + compSize);
+        if(method === 0) return data.slice();
+        if(method === 8) return await inflateRaw(data);
+        throw new Error('unsupported zip compression: ' + method);
+      }
+      off += 46 + nameLen + extraLen + commentLen;
+    }
+    return null;
+  }
+
+  // numbering.xml -> { numId: { ilvl: 'bullet'|'number' } }
+  function buildNumberingMap(numberingXml){
+    const map = {};
+    if(!numberingXml) return map;
+    let doc; try { doc = new DOMParser().parseFromString(numberingXml, 'application/xml'); } catch(e){ return map; }
+    const abstract = {};
+    const anums = doc.getElementsByTagNameNS(WORD_NS, 'abstractNum');
+    for(let i=0;i<anums.length;i++){
+      const aid = wattr(anums[i], 'abstractNumId');
+      const lvls = {};
+      const lvlEls = anums[i].getElementsByTagNameNS(WORD_NS, 'lvl');
+      for(let j=0;j<lvlEls.length;j++){
+        const ilvl = parseInt(wattr(lvlEls[j], 'ilvl') || '0', 10) || 0;
+        const fmtEl = lvlEls[j].getElementsByTagNameNS(WORD_NS, 'numFmt')[0];
+        const fmt = fmtEl ? wattr(fmtEl, 'val') : 'bullet';
+        lvls[ilvl] = (fmt === 'bullet') ? 'bullet' : 'number';
+      }
+      if(aid != null) abstract[aid] = lvls;
+    }
+    const nums = doc.getElementsByTagNameNS(WORD_NS, 'num');
+    for(let i=0;i<nums.length;i++){
+      const numId = wattr(nums[i], 'numId');
+      const aref = nums[i].getElementsByTagNameNS(WORD_NS, 'abstractNumId')[0];
+      const aid = aref ? wattr(aref, 'val') : null;
+      if(numId != null && aid != null && abstract[aid]) map[numId] = abstract[aid];
+    }
+    return map;
+  }
+
+  function docxRunsToHtml(p){
+    let out = '';
+    const runs = p.getElementsByTagNameNS(WORD_NS, 'r');
+    for(let i=0;i<runs.length;i++){
+      const r = runs[i];
+      const rPr = wchild(r, 'rPr');
+      const bold = wToggleOn(rPr ? wchild(rPr,'b') : null);
+      const ital = wToggleOn(rPr ? wchild(rPr,'i') : null);
+      const und  = wToggleOn(rPr ? wchild(rPr,'u') : null);
+      let txt = '';
+      for(let t=r.firstElementChild;t;t=t.nextElementSibling){
+        if(t.localName==='t') txt += t.textContent;
+        else if(t.localName==='tab') txt += ' ';
+        else if(t.localName==='br' || t.localName==='cr') txt += ' ';
+      }
+      let piece = escapeHtml(txt);
+      if(!piece) continue;
+      if(und) piece = '<u>'+piece+'</u>';
+      if(ital) piece = '<em>'+piece+'</em>';
+      if(bold) piece = '<strong>'+piece+'</strong>';
+      out += piece;
+    }
+    return out;
+  }
+
+  function docxToImportHtml(documentXml, numberingXml){
+    const doc = new DOMParser().parseFromString(documentXml, 'application/xml');
+    if(doc.getElementsByTagName('parsererror').length) throw new Error('bad document.xml');
+    const listFmt = buildNumberingMap(numberingXml);
+    const body = doc.getElementsByTagNameNS(WORD_NS, 'body')[0];
+    if(!body) throw new Error('no body');
+
+    const ops = [];
+    function handlePara(p){
+      const pPr = wchild(p, 'pPr');
+      const styleEl = pPr ? wchild(pPr, 'pStyle') : null;
+      const styleVal = styleEl ? wattr(styleEl, 'val') : '';
+      const numPr = pPr ? wchild(pPr, 'numPr') : null;
+      const inner = docxRunsToHtml(p);
+      if(!inner.replace(/<[^>]+>/g,'').trim()) return;
+      if(/^(heading|title|subtitle)/i.test(styleVal || '')){ ops.push({ kind:'heading', text: inner.replace(/<[^>]+>/g,'').trim() }); return; }
+      if(numPr){
+        const numIdEl = wchild(numPr, 'numId');
+        const ilvlEl = wchild(numPr, 'ilvl');
+        const numId = numIdEl ? wattr(numIdEl, 'val') : null;
+        const ilvl = ilvlEl ? (parseInt(wattr(ilvlEl,'val')||'0',10)||0) : 0;
+        const fmt = (numId!=null && listFmt[numId] && listFmt[numId][ilvl]) || 'bullet';
+        ops.push({ kind:'li', html: inner, fmt }); return;
+      }
+      ops.push({ kind:'para', html: inner });
+    }
+    for(let c=body.firstElementChild;c;c=c.nextElementSibling){
+      if(c.localName==='p') handlePara(c);
+      else if(c.localName==='tbl'){
+        wchildren(c,'tr').forEach(tr=>{
+          const parts = wchildren(tr,'tc').map(tc=>{
+            let s=''; const cps = tc.getElementsByTagNameNS(WORD_NS,'p');
+            for(let k=0;k<cps.length;k++) s += docxRunsToHtml(cps[k]);
+            return s;
+          }).filter(x=>x.replace(/<[^>]+>/g,'').trim());
+          if(parts.length) ops.push({ kind:'para', html: parts.join(' — ') });
+        });
+      }
+    }
+
+    let html = ''; let listOpen = null;
+    function closeList(){ if(listOpen){ html += (listOpen==='ol'?'</ol>':'</ul>'); listOpen = null; } }
+    ops.forEach(op=>{
+      if(op.kind==='heading'){ closeList(); html += makeBreakMarkerHtml(op.text); }
+      else if(op.kind==='li'){
+        const want = op.fmt==='bullet' ? 'ul' : 'ol';
+        if(listOpen && listOpen!==want) closeList();
+        if(!listOpen){ html += (want==='ol'?'<ol>':'<ul>'); listOpen = want; }
+        html += '<li>'+op.html+'</li>';
+      } else { closeList(); html += op.html + '<br>'; }
+    });
+    closeList();
+    return html;
+  }
+
+  async function readDocxFile(file){
+    const buf = await file.arrayBuffer();
+    const docBytes = await unzipEntry(buf, 'word/document.xml');
+    if(!docBytes) throw new Error('no word/document.xml');
+    const documentXml = new TextDecoder().decode(docBytes);
+    let numberingXml = null;
+    try { const nb = await unzipEntry(buf, 'word/numbering.xml'); if(nb) numberingXml = new TextDecoder().decode(nb); } catch(e){ /* numbering optional */ }
+    return docxToImportHtml(documentXml, numberingXml);
+  }
+
   function blobToDataUrl(blob){
     return new Promise((resolve, reject)=>{
       const reader = new FileReader();
@@ -3594,6 +3769,18 @@
     const file = e.target.files[0];
     e.target.value = '';
     if(!file) return;
+    if(/\.docx$/i.test(file.name)){
+      if(typeof DecompressionStream === 'undefined'){
+        showToast("This device can't open .docx files directly — copy/paste the text instead, or save it as a web page (.html).", {danger:true, duration:6000});
+        return;
+      }
+      let html;
+      try { html = await readDocxFile(file); }
+      catch(err){ console.error('[import] .docx parse failed', err); showToast("Couldn't read that Word file. Try copy/paste, or save it as .html.", {danger:true, duration:6000}); return; }
+      if(!html || !html.replace(/<[^>]+>/g,'').trim()){ showToast('That Word file looks empty.', {danger:true}); return; }
+      appendToStage(html);
+      return;
+    }
     let text;
     try{ text = await file.text(); } catch(err){ showToast("Couldn't read that file.", {danger:true}); return; }
     const isHtml = /\.html?$/i.test(file.name);
@@ -3626,14 +3813,18 @@
   importStage.addEventListener('keyup', updateImportToolbarState);
   importStage.addEventListener('mouseup', updateImportToolbarState);
 
-  // Splits the staged content on .import-break markers into sections, each holding one rich-text
-  // 'block' item -- the same shape every item already stores, so nothing downstream (Prepare,
-  // Present, PDF export) needs to know this content arrived via import rather than typed by hand.
+  // Splits the staged content into sections (on .import-break markers) and, within each section,
+  // into one 'block' item per paragraph. The paragraph boundary is a top-level <br>: pasted Word/
+  // Docs paragraphs unwrap to a single <br> between them, and the .docx importer separates
+  // paragraphs the same way, so splitting there yields one editable block per paragraph rather
+  // than a single monolith. Consecutive <br>s collapse; a <ul>/<ol> is one top-level element and
+  // so stays a single block. Blocks are the same shape every item stores, so nothing downstream
+  // (Prepare, Present, PDF export) needs to know the content arrived via import.
   function importStagingToSections(containerEl){
     const secs = [];
     let cur = null;
     let buf = [];
-    function flush(){
+    function flushBlock(){
       if(!cur || !buf.length) return;
       const raw = buf.map(n => n.nodeType===1 ? n.outerHTML : escapeHtml(n.textContent)).join('');
       const html = sanitizeRichText(raw).replace(/​/g,'').replace(/^(<br>\s*)+/,'').replace(/(<br>\s*)+$/,'').trim();
@@ -3641,7 +3832,7 @@
       buf = [];
     }
     function startSection(title){
-      flush();
+      flushBlock();
       cur = { id: uid(), title: (title||'NOTES').toUpperCase().slice(0,80), items: [] };
       secs.push(cur);
     }
@@ -3650,11 +3841,18 @@
         startSection(node.dataset.title);
         return;
       }
+      // A top-level <br> ends the current paragraph/block. Repeated <br>s just flush an
+      // already-empty buffer (no-op), so blank lines don't create empty blocks.
+      if(node.nodeType===1 && node.tagName === 'BR'){
+        if(!cur) startSection('');
+        flushBlock();
+        return;
+      }
       if(node.nodeType===3 && !node.textContent.trim()) return;
       if(!cur) startSection('');
       buf.push(node);
     });
-    flush();
+    flushBlock();
     return secs;
   }
 
