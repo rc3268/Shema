@@ -2264,7 +2264,6 @@
       <div class="item-main">
         <div class="item-text" contenteditable="true" data-role="text" data-placeholder="Type here..."></div>
         ${it.type === 'scripture' ? `<div class="item-scripture-actions">
-          <button class="icon-sm" data-act="insert-verse" title="Insert the KJV text for this reference — works offline">Insert KJV</button>
           <button class="icon-sm" data-act="lookup" title="Look up on Blue Letter Bible">Look up</button>
         </div>` : ''}
       </div>
@@ -2308,31 +2307,7 @@
         const match = SCRIPTURE_RE.exec(plain);
         const query = match ? match[0] : plain.slice(0, 60);
         if(!query.trim()){ showToast('Type a reference or passage first.', {danger:true}); return; }
-        window.open('https://www.blueletterbible.org/search/search.cfm?Criteria=' + encodeURIComponent(query) + '&t=KJV', '_blank');
-      });
-    }
-
-    const insertVerseBtn = row.querySelector('[data-act="insert-verse"]');
-    if(insertVerseBtn){
-      insertVerseBtn.addEventListener('click', async ()=>{
-        const plain = htmlToPlainText(editable.innerHTML).trim();
-        const ref = parseScriptureRef(plain);
-        if(!ref){ showToast('Type a reference like "John 3:16" first.', {danger:true}); return; }
-        insertVerseBtn.disabled = true;
-        insertVerseBtn.textContent = 'Loading…';
-        try{
-          const data = await loadKjvData();
-          const html = formatVerseHtml(data, ref);
-          if(!html){ showToast("Couldn't find that reference — check the chapter/verse.", {danger:true}); return; }
-          editable.innerHTML = html;
-          it.text = sanitizeRichText(editable.innerHTML);
-          scheduleAutosave();
-        } catch(err){
-          showToast("Couldn't load the offline KJV text.", {danger:true});
-        } finally {
-          insertVerseBtn.disabled = false;
-          insertVerseBtn.textContent = 'Insert KJV';
-        }
+        window.open('https://www.blueletterbible.org/search/search.cfm?Criteria=' + encodeURIComponent(query), '_blank');
       });
     }
 
@@ -2568,140 +2543,6 @@
   ].sort((a,b)=> b.length - a.length); // longest first so multi-word books aren't shadowed
   const BOOK_PATTERN = BIBLE_BOOKS.map(b => b.replace(/\s/g,'\\s')).join('|');
   const SCRIPTURE_RE = new RegExp('\\b(' + BOOK_PATTERN + ')\\s+(\\d{1,3})(:(\\d{1,3})(-(\\d{1,3}))?)?\\b', 'g');
-
-  /* ============ OFFLINE KJV SCRIPTURE LOOKUP ============ */
-  // Canonical book order matches data/kjv.json exactly -- index into that file's `books` array.
-  const KJV_BOOKS = [
-    'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth',
-    '1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles','Ezra','Nehemiah',
-    'Esther','Job','Psalms','Proverbs','Ecclesiastes','Song of Solomon','Isaiah','Jeremiah',
-    'Lamentations','Ezekiel','Daniel','Hosea','Joel','Amos','Obadiah','Jonah','Micah','Nahum',
-    'Habakkuk','Zephaniah','Haggai','Zechariah','Malachi','Matthew','Mark','Luke','John','Acts',
-    'Romans','1 Corinthians','2 Corinthians','Galatians','Ephesians','Philippians','Colossians',
-    '1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon','Hebrews',
-    'James','1 Peter','2 Peter','1 John','2 John','3 John','Jude','Revelation'
-  ];
-  // Common abbreviations pastors actually type, mapped to the KJV_BOOKS index above.
-  const KJV_BOOK_ALIASES = {
-    genesis:0, gen:0, ge:0, gn:0,
-    exodus:1, exod:1, exo:1, ex:1,
-    leviticus:2, lev:2, le:2, lv:2,
-    numbers:3, num:3, nu:3, nm:3,
-    deuteronomy:4, deut:4, deu:4, dt:4,
-    joshua:5, josh:5, jos:5,
-    judges:6, judg:6, jdg:6,
-    ruth:7, rth:7, ru:7,
-    '1samuel':8, '1sam':8, '1sa':8,
-    '2samuel':9, '2sam':9, '2sa':9,
-    '1kings':10, '1kgs':10, '1ki':10,
-    '2kings':11, '2kgs':11, '2ki':11,
-    '1chronicles':12, '1chron':12, '1chr':12,
-    '2chronicles':13, '2chron':13, '2chr':13,
-    ezra:14, ezr:14,
-    nehemiah:15, neh:15,
-    esther:16, esth:16, est:16,
-    job:17,
-    psalms:18, psalm:18, ps:18, psa:18, pslm:18,
-    proverbs:19, prov:19, pro:19, prv:19,
-    ecclesiastes:20, eccl:20, ecc:20,
-    songofsolomon:21, song:21, sos:21, canticles:21,
-    isaiah:22, isa:22,
-    jeremiah:23, jer:23,
-    lamentations:24, lam:24,
-    ezekiel:25, ezek:25, eze:25,
-    daniel:26, dan:26,
-    hosea:27, hos:27,
-    joel:28,
-    amos:29,
-    obadiah:30, obad:30, oba:30,
-    jonah:31, jon:31,
-    micah:32, mic:32,
-    nahum:33, nah:33,
-    habakkuk:34, hab:34,
-    zephaniah:35, zeph:35, zep:35,
-    haggai:36, hag:36,
-    zechariah:37, zech:37, zec:37,
-    malachi:38, mal:38,
-    matthew:39, matt:39, mt:39,
-    mark:40, mrk:40, mk:40,
-    luke:41, luk:41, lk:41,
-    john:42, jn:42, jhn:42,
-    acts:43, act:43,
-    romans:44, rom:44, ro:44,
-    '1corinthians':45, '1cor':45, '1co':45,
-    '2corinthians':46, '2cor':46, '2co':46,
-    galatians:47, gal:47,
-    ephesians:48, eph:48,
-    philippians:49, phil:49, php:49,
-    colossians:50, col:50,
-    '1thessalonians':51, '1thess':51, '1thes':51, '1th':51,
-    '2thessalonians':52, '2thess':52, '2thes':52, '2th':52,
-    '1timothy':53, '1tim':53, '1ti':53,
-    '2timothy':54, '2tim':54, '2ti':54,
-    titus:55, tit:55,
-    philemon:56, philem:56, phm:56,
-    hebrews:57, heb:57,
-    james:58, jas:58, jam:58,
-    '1peter':59, '1pet':59, '1pe':59,
-    '2peter':60, '2pet':60, '2pe':60,
-    '1john':61, '1jn':61, '1jo':61,
-    '2john':62, '2jn':62, '2jo':62,
-    '3john':63, '3jn':63, '3jo':63,
-    jude:64,
-    revelation:65, rev:65, revelations:65
-  };
-
-  function parseScriptureRef(raw){
-    if(!raw) return null;
-    let s = raw.trim().toLowerCase();
-    s = s.replace(/^(i|1st|first)\s+/,'1 ').replace(/^(ii|2nd|second)\s+/,'2 ').replace(/^(iii|3rd|third)\s+/,'3 ');
-    const m = s.match(/^([1-3]?\s*[a-z .]+?)\.?\s+(\d+)(?::(\d+)(?:[-–](\d+))?)?\s*$/);
-    if(!m) return null;
-    const bookRaw = m[1].replace(/[.\s]+/g,'').trim();
-    const chapter = parseInt(m[2],10);
-    const verseStart = m[3] ? parseInt(m[3],10) : null;
-    const verseEnd = m[4] ? parseInt(m[4],10) : verseStart;
-    const bookIndex = KJV_BOOK_ALIASES[bookRaw];
-    if(bookIndex == null || !chapter) return null;
-    return { bookIndex, chapter, verseStart, verseEnd };
-  }
-
-  let kjvData = null;
-  let kjvLoadPromise = null;
-  function loadKjvData(){
-    if(kjvData) return Promise.resolve(kjvData);
-    if(kjvLoadPromise) return kjvLoadPromise;
-    kjvLoadPromise = fetch('data/kjv.json').then(r=>{
-      if(!r.ok) throw new Error('fetch failed');
-      return r.json();
-    }).then(d=>{ kjvData = d; return d; }).catch(err=>{ kjvLoadPromise = null; throw err; });
-    return kjvLoadPromise;
-  }
-
-  // Builds the rich-text HTML for a parsed reference, respecting the same allowed-tags
-  // sanitizer as everything else typed into an item (strong/em/br only -- no sup, no styles).
-  function formatVerseHtml(data, ref){
-    const book = data.books[ref.bookIndex];
-    if(!book) return null;
-    const chapterVerses = book.chapters[ref.chapter-1];
-    if(!chapterVerses) return null;
-    const start = ref.verseStart || 1;
-    const end = ref.verseEnd || chapterVerses.length;
-    if(start < 1 || start > chapterVerses.length) return null;
-    const verses = [];
-    for(let v=start; v<=Math.min(end, chapterVerses.length); v++){
-      verses.push({ n:v, text: chapterVerses[v-1] });
-    }
-    if(verses.length === 0) return null;
-    const showNumbers = verses.length > 1;
-    const body = verses.map(v => showNumbers
-      ? `<strong>${v.n} </strong>${escapeHtml(v.text)}`
-      : escapeHtml(v.text)
-    ).join('<br>');
-    const citation = `${KJV_BOOKS[ref.bookIndex]} ${ref.chapter}` +
-      (verses.length === 1 ? `:${verses[0].n}` : `:${verses[0].n}-${verses[verses.length-1].n}`);
-    return `${body}<br><em>${escapeHtml(citation)} (KJV)</em>`;
-  }
 
   function rtfEscape(str){
     return String(str)
