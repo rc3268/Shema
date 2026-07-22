@@ -4344,6 +4344,26 @@
   function syncedAt(table, id){ return (syncMeta[table] && syncMeta[table][id]) || 0; }
   function markSynced(table, id, ts){ if(!syncMeta[table]) syncMeta[table] = {}; syncMeta[table][id] = ts; }
 
+  // Deep-equal with a canonical key order, so it doesn't matter that a locally-edited object and
+  // one freshly rebuilt by fromRemote() can have their keys in different insertion order -- a
+  // plain JSON.stringify comparison would see those as different even when every value matches.
+  // Used to tell a *real* content conflict (two devices actually changed different things) apart
+  // from two timestamps that merely both moved past the last sync watermark with no real change
+  // in between (e.g. the same edit reaching the server from two devices, or a save that only ever
+  // touched bookkeeping fields) -- see syncOneTable's pull loop.
+  function deepEqualIgnoring(a, b, ignoreKeys){
+    function clean(v){
+      if(Array.isArray(v)) return v.map(clean);
+      if(v && typeof v === 'object'){
+        const out = {};
+        Object.keys(v).sort().forEach(k => { if(!ignoreKeys.includes(k)) out[k] = clean(v[k]); });
+        return out;
+      }
+      return v;
+    }
+    return JSON.stringify(clean(a)) === JSON.stringify(clean(b));
+  }
+
   // Illustration images ride along as a separate Storage object, not a column -- a base64 image
   // in a jsonb/text column would blow through Supabase's free-tier row/storage limits fast (see
   // context.md). The local `imageData` (base64) is the offline-first source of truth and is
@@ -4540,15 +4560,34 @@
           const localChanged = (local.updatedAt||0) > lastSynced;
           const remoteChanged = (r.updated_at||0) > lastSynced;
           if(remoteChanged && localChanged){
-            const loserCopy = JSON.parse(JSON.stringify(local));
-            loserCopy.id = uid();
-            loserCopy.conflictOf = r.id;
-            loserCopy.title = (loserCopy.title || 'Untitled') + ' (synced copy)';
-            loserCopy.updatedAt = Date.now();
-            localList.push(loserCopy);
-            Object.assign(local, cfg.fromRemote(r));
-            markSynced(cfg.table, r.id, r.updated_at||0);
-            changed = true;
+            const incoming = cfg.fromRemote(r);
+            // `deleted` coerced to a real boolean on both sides before comparing -- a local
+            // record that's never been through a remote round-trip simply omits the key rather
+            // than carrying an explicit `false` (fromRemote always sets one), which would
+            // otherwise register as a content difference despite meaning the same thing.
+            const localForCompare = { ...local, deleted: !!local.deleted };
+            const incomingForCompare = { ...incoming, deleted: !!incoming.deleted };
+            if(deepEqualIgnoring(localForCompare, incomingForCompare, ['id','updatedAt','schemaVersion','conflictOf'])){
+              // Both sides changed since the last sync watermark, but landed on identical content
+              // -- not a real conflict (the classic false positive: the same edit reaching the
+              // server from two devices, or a save that only ever touched a bookkeeping field).
+              // Take whichever timestamp is newer with no duplicate card, instead of always
+              // cloning just because both timestamps moved.
+              if((r.updated_at||0) >= (local.updatedAt||0)) Object.assign(local, incoming);
+              markSynced(cfg.table, r.id, Math.max(r.updated_at||0, local.updatedAt||0));
+              changed = true;
+            } else {
+              const loserCopy = JSON.parse(JSON.stringify(local));
+              loserCopy.id = uid();
+              loserCopy.conflictOf = r.id;
+              const nameKey = ('title' in loserCopy) ? 'title' : 'name';
+              loserCopy[nameKey] = (loserCopy[nameKey] || 'Untitled') + ' (synced copy)';
+              loserCopy.updatedAt = Date.now();
+              localList.push(loserCopy);
+              Object.assign(local, incoming);
+              markSynced(cfg.table, r.id, r.updated_at||0);
+              changed = true;
+            }
           } else if(remoteChanged && !localChanged){
             Object.assign(local, cfg.fromRemote(r));
             markSynced(cfg.table, r.id, r.updated_at||0);
