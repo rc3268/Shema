@@ -657,7 +657,11 @@
   .nav-btn:disabled{ opacity:.35; }
   #navCounter{ color:var(--muted); font-size:13px; font-family:'IBM Plex Mono',monospace; }
   .present-nav-center{ display:flex; flex-direction:column; align-items:center; gap:4px; }
-  #fontPop{ position:absolute; top:52px; right:14px; background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:10px; display:none; gap:8px; z-index:40; }
+  /* position:fixed (not absolute) -- #presentTop is `overflow-x:auto` for its own horizontal
+     scroll fallback on narrow screens, and a non-`visible` overflow-x implicitly makes overflow-y
+     non-visible too, clipping this popup's bottom edge since it extends below #presentTop's own
+     height. Fixed positioning escapes that ancestor's overflow entirely instead of relying on it. */
+  #fontPop{ position:fixed; top:calc(52px + env(safe-area-inset-top)); right:14px; background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:10px; display:none; gap:8px; z-index:40; }
   #fontPop.open{ display:flex; }
   #fontPop button{ background:var(--panel); border:1px solid var(--line); color:var(--text); width:36px; height:36px; border-radius:8px; font-size:16px; }
 
@@ -834,7 +838,7 @@
 <div id="app">
 
   <div id="brandbar">
-    <img src="icons/brandbar.png" class="brand-mark" alt="">
+    <img src="icons/brandbar.png" data-light="icons/brandbar.png" data-dark="icons/presentbrand.png" class="brand-mark brand-ic" alt="">
     <span class="brand-word">shema</span>
     <button id="editorTitleDisplay" title="Edit sermon details"></button>
     <button class="btn icon" id="toolbarToggleBtn" title="Toggle formatting toolbar"><img class="mono-ic" src="icons/toolbar-toggle.png" data-light="icons/toolbar-toggle.png" data-dark="icons/toolbar-toggle-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
@@ -937,7 +941,7 @@
   <div class="view" id="view-present">
     <div id="presentTop">
       <div class="present-left" style="display:flex; align-items:center; gap:16px; min-width:0;">
-        <div id="presentBrand"><img src="icons/presentbrand.png" alt=""><span>shema</span></div>
+        <div id="presentBrand"><img src="icons/brandbar.png" data-light="icons/brandbar.png" data-dark="icons/presentbrand.png" class="brand-ic" alt=""><span>shema</span></div>
         <div class="timer-block">
           <div id="clockDisplay">--:--</div>
           <span class="divider"></span>
@@ -4123,7 +4127,7 @@
     document.querySelectorAll('.dm-icon').forEach(img=>{
       img.src = on ? img.dataset.light : img.dataset.dark;
     });
-    document.querySelectorAll('.nav-ic, .size-ic, .mono-ic').forEach(img=>{
+    document.querySelectorAll('.nav-ic, .size-ic, .mono-ic, .brand-ic').forEach(img=>{
       img.src = on ? img.dataset.dark : img.dataset.light;
     });
   }
