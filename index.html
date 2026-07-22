@@ -532,6 +532,25 @@
   .plan-more{ font-size:9px; color:var(--muted); padding:0 2px; }
   #planLegend{ display:flex; gap:10px; flex-wrap:wrap; padding:10px; }
   .plan-legend-item{ display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+  #planSearchRow{ padding:8px 14px 0; flex-shrink:0; }
+  #planSearchRow input{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:9px 12px; font-size:14px; font-family:inherit;
+    -webkit-appearance:none; appearance:none;
+  }
+  #planSearchRow input::placeholder{ color:var(--muted); }
+  #planSearchResults{ display:none; flex-direction:column; gap:4px; padding:8px 14px; flex-shrink:0; max-height:220px; overflow-y:auto; }
+  #planSearchResults.open{ display:flex; }
+  .plan-search-result{
+    display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line);
+    border-radius:9px; padding:8px 10px; cursor:pointer; text-align:left;
+  }
+  .plan-search-result:hover{ border-color:var(--sage); }
+  .plan-search-result .psr-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .plan-search-result .psr-title{ font-weight:600; font-size:13px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .plan-search-result .psr-date{ font-size:11px; color:var(--muted); flex-shrink:0; }
+  .plan-search-empty{ font-size:12px; color:var(--muted); padding:4px 2px; }
+  .plan-day.search-match{ border-color:var(--gold-dim); box-shadow:0 0 0 2px var(--gold-soft); }
   .plan-legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   #toastHost{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999;
@@ -890,6 +909,8 @@
         <button class="btn icon" id="planNextBtn" title="Next month"><img class="mono-ic" src="icons/plannextbtn.png" data-light="icons/plannextbtn.png" data-dark="icons/plannextbtn-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
       </div>
     </div>
+    <div id="planSearchRow"><input type="search" id="planSearchInput" placeholder="Search series or sermon titles…"></div>
+    <div id="planSearchResults"></div>
     <div class="scroll">
       <div id="planWeekdays">
         <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
@@ -1908,6 +1929,7 @@
       const isOutside = cellDate.getMonth() !== firstOfMonth.getMonth();
       const cell = document.createElement('div');
       cell.className = 'plan-day' + (isOutside ? ' outside' : '') + (dateStr===todayStr ? ' today' : '');
+      cell.dataset.date = dateStr;
       const entries = byDate[dateStr] || [];
       let entriesHtml = '';
       entries.slice(0,2).forEach(s=>{
@@ -1938,6 +1960,60 @@
       legend.innerHTML = '';
     }
   }
+
+  // Search, not a drag-reorderable list -- decided directly with the user: across decades of
+  // series, clicking prev/next through hundreds of months to find one sermon doesn't scale, but
+  // a sermon's actual scheduled date is meaningful information worth keeping visible, so search
+  // jumps the calendar TO the match's month rather than replacing the calendar with a plain list.
+  let planHighlightTimer = null;
+  function jumpToPlanSermon(s){
+    if(!s.date) return;
+    planMonth = new Date(s.date + 'T00:00:00');
+    planMonth.setDate(1);
+    planMonth.setHours(0,0,0,0);
+    renderPlan();
+    document.getElementById('planSearchResults').classList.remove('open');
+    document.getElementById('planSearchInput').value = '';
+    planSearchQuery = '';
+    const cell = findPlanDayCell(s.date);
+    if(cell){
+      clearTimeout(planHighlightTimer);
+      document.querySelectorAll('.plan-day.search-match').forEach(el => el.classList.remove('search-match'));
+      cell.classList.add('search-match');
+      cell.scrollIntoView({ block:'center', behavior:'smooth' });
+      planHighlightTimer = setTimeout(()=> cell.classList.remove('search-match'), 3000);
+    }
+  }
+  function findPlanDayCell(dateStr){
+    return [...document.querySelectorAll('#planGrid .plan-day')].find(el => el.dataset.date === dateStr) || null;
+  }
+  let planSearchQuery = '';
+  function renderPlanSearchResults(){
+    const wrap = document.getElementById('planSearchResults');
+    const q = planSearchQuery.trim().toLowerCase();
+    if(!q){ wrap.classList.remove('open'); wrap.innerHTML = ''; return; }
+    const matches = sermons.filter(s => !s.deleted && (
+      (s.title||'').toLowerCase().includes(q) || (s.series||'').toLowerCase().includes(q)
+    )).sort((a,b) => (a.date||'').localeCompare(b.date||'')).slice(0,30);
+    wrap.classList.add('open');
+    if(!matches.length){ wrap.innerHTML = `<div class="plan-search-empty">No series or sermon titles match "${escapeHtml(planSearchQuery.trim())}".</div>`; return; }
+    wrap.innerHTML = '';
+    matches.forEach(s=>{
+      const row = document.createElement('div');
+      row.className = 'plan-search-result';
+      const dateStr = s.date ? new Date(s.date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'No date';
+      row.innerHTML = `
+        <span class="psr-dot" style="background:${colorForSeries(s.series)}"></span>
+        <span class="psr-title">${escapeHtml(s.title || 'Untitled Sermon')}${s.series?' · '+escapeHtml(s.series):''}</span>
+        <span class="psr-date">${escapeHtml(dateStr)}</span>`;
+      row.addEventListener('click', ()=> jumpToPlanSermon(s));
+      wrap.appendChild(row);
+    });
+  }
+  document.getElementById('planSearchInput').addEventListener('input', e=>{
+    planSearchQuery = e.target.value;
+    renderPlanSearchResults();
+  });
 
   document.getElementById('planPrevBtn').addEventListener('click', ()=>{
     planMonth.setMonth(planMonth.getMonth() - 1);
