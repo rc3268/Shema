@@ -2,6 +2,10 @@
 
 This file exists to bring a new Claude chat or Cowork session up to speed on this project without re-deriving decisions that have already been made. Read this before making product, design, or architecture calls here — it captures the *why*, not just the *what* (the *what* is in `README.md` and the code itself).
 
+## Agenda: next session
+
+**Review every change made after 7PM on 2026-07-22** before starting any new work -- the user asked for this explicitly before logging off, right after merging the PR covering that day's work. Walk the commits/diff from that point forward (conflict false-positive fix, sign-in-persistence mitigation, Practice note excerpt fix, Library year filter, Plan search) with the user rather than just re-reading History and assuming it's fine. Delete this section once that review actually happens.
+
 ## End goal
 
 Ship Shema as a **paid native app on the Apple App Store and Google Play Store**. Target user: pastors and teachers who prepare a sermon on a phone or tablet and want that same sermon available on a computer too — cross-device continuity is a core requirement, not a nice-to-have, but (see Business model) computer access is specifically a sync-subscriber benefit, not something the free web ever provides.
