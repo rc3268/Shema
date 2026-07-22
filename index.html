@@ -240,17 +240,10 @@
   #emptyLibrary{ text-align:center; color:var(--muted); padding:60px 30px; line-height:1.6; }
   #emptyLibrary button{ margin-top:14px; }
   #emptyEditor{ color:var(--muted); font-size:16px; text-align:center; margin-top:15vh; line-height:1.6; padding:0 24px; }
-  #librarySearchRow{ padding:8px 14px 12px; flex-shrink:0; }
-  #librarySearchRow input{
-    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-    border-radius:9px; padding:9px 12px; font-size:14px; font-family:inherit;
-    -webkit-appearance:none; appearance:none;
-  }
-  #librarySearchRow input::placeholder{ color:var(--muted); }
-  #libraryStatusRow{ display:flex; align-items:center; justify-content:space-between; padding:0 14px 10px; flex-shrink:0; }
+  #libraryStatusRow{ display:flex; align-items:center; justify-content:space-between; padding:8px 14px 10px; flex-shrink:0; gap:10px; }
   #backupStatus{ font-size:12px; color:var(--muted); }
   #backupStatus.stale{ color:var(--orange); font-weight:600; }
-  #sortToggle{ display:flex; gap:2px; background:var(--panel-2); border-radius:8px; padding:2px; }
+  #sortToggle{ display:flex; gap:2px; background:var(--panel-2); border-radius:8px; padding:2px; flex-shrink:0; }
   #sortToggle button{
     background:none; border:none; color:var(--muted); font-size:11px; font-weight:600;
     padding:5px 10px; border-radius:6px; cursor:pointer;
@@ -260,15 +253,30 @@
     font-family:'Playfair Display',serif; font-size:12px; font-weight:700; letter-spacing:0.5px;
     color:var(--muted); text-transform:uppercase; padding:14px 4px 6px;
   }
-  #libraryFilterRow{ display:flex; align-items:center; gap:8px; padding:0 14px 12px; flex-shrink:0; }
-  #yearFilter{
-    flex-shrink:0; background:var(--panel-2); border:1px solid var(--line); color:var(--muted);
-    border-radius:20px; padding:6px 10px; font-size:12px; font-family:inherit; font-weight:600;
+  /* ---- Filters button + left-side slicer tray (Library & Plan) ---- */
+  #libraryFilterBar, #planFilterBar{ display:flex; align-items:center; padding:8px 14px 0; flex-shrink:0; }
+  .filters-btn{ position:relative; flex-shrink:0; }
+  .filter-badge{
+    display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px;
+    padding:0 4px; margin-left:6px; background:var(--gold); color:var(--ink); border-radius:8px;
+    font-size:10px; font-weight:700; vertical-align:middle;
+  }
+  .slicer-group{ margin-bottom:20px; }
+  .slicer-label{
+    font-family:'Playfair Display',serif; font-size:12px; font-weight:700; letter-spacing:0.5px;
+    color:var(--muted); text-transform:uppercase; margin-bottom:8px;
+  }
+  .slicer-group input[type="search"]{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:9px 12px; font-size:14px; font-family:inherit;
     -webkit-appearance:none; appearance:none;
   }
-  #seriesFilter{ display:flex; gap:8px; overflow-x:auto; flex:1; min-width:0; }
-  .chip{ background:var(--panel-2); border:1px solid var(--line); color:var(--muted); padding:6px 14px; border-radius:20px; font-size:12px; white-space:nowrap; cursor:pointer; }
-  .chip.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); }
+  .slicer-group input[type="search"]::placeholder{ color:var(--muted); }
+  .slicer-list{ display:flex; flex-direction:column; gap:2px; max-height:220px; overflow-y:auto; }
+  .slicer-empty{ font-size:12px; color:var(--muted); padding:4px 2px; }
+  .slicer-option{ display:flex; align-items:center; gap:8px; padding:7px 4px; font-size:13px; color:var(--text); cursor:pointer; border-radius:6px; }
+  .slicer-option:hover{ background:var(--panel-2); }
+  .slicer-option input[type="checkbox"]{ accent-color:var(--gold); width:15px; height:15px; flex-shrink:0; }
 
   /* ===== TEMPLATE PICKER MODAL ===== */
   .modal-overlay{ position:fixed; inset:0; background:rgba(10,12,15,.88); z-index:60; display:none; align-items:flex-end; justify-content:center; }
@@ -302,6 +310,20 @@
     padding-top:env(safe-area-inset-top);
   }
   .modal-overlay.drawer-right.open .modal-sheet{ transform:translateX(0); }
+  /* Left-side mirror of the above, for the Library/Plan Filters trays -- same reasoning on both
+     the extra 40px (clearing the shadow, not just the sheet) and staying display:flex at rest. */
+  .modal-overlay.drawer-left{
+    display:flex; justify-content:flex-start; align-items:stretch;
+    background:rgba(10,12,15,0); pointer-events:none; transition:background .25s ease;
+  }
+  .modal-overlay.drawer-left.open{ background:rgba(10,12,15,.6); pointer-events:auto; }
+  .modal-overlay.drawer-left .modal-sheet{
+    width:min(340px,88vw); height:100%; max-height:none;
+    border-radius:0; box-shadow:8px 0 28px rgba(0,0,0,.28);
+    transform:translateX(calc(-100% - 40px)); transition:transform .25s ease;
+    padding-top:env(safe-area-inset-top);
+  }
+  .modal-overlay.drawer-left.open .modal-sheet{ transform:translateX(0); }
   /* Centered variant: a genuine "stop and decide" moment (see duplicateSermonModal), distinct
      from the bottom-sheet default's "quick contextual form" register. */
   .modal-overlay.center-modal{ align-items:center; padding:24px; }
@@ -544,25 +566,6 @@
   .plan-more{ font-size:9px; color:var(--muted); padding:0 2px; }
   #planLegend{ display:flex; gap:10px; flex-wrap:wrap; padding:10px; }
   .plan-legend-item{ display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
-  #planSearchRow{ padding:8px 14px 0; flex-shrink:0; }
-  #planSearchRow input{
-    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text);
-    border-radius:9px; padding:9px 12px; font-size:14px; font-family:inherit;
-    -webkit-appearance:none; appearance:none;
-  }
-  #planSearchRow input::placeholder{ color:var(--muted); }
-  #planSearchResults{ display:none; flex-direction:column; gap:4px; padding:8px 14px; flex-shrink:0; max-height:220px; overflow-y:auto; }
-  #planSearchResults.open{ display:flex; }
-  .plan-search-result{
-    display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line);
-    border-radius:9px; padding:8px 10px; cursor:pointer; text-align:left;
-  }
-  .plan-search-result:hover{ border-color:var(--sage); }
-  .plan-search-result .psr-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .plan-search-result .psr-title{ font-weight:600; font-size:13px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .plan-search-result .psr-date{ font-size:11px; color:var(--muted); flex-shrink:0; }
-  .plan-search-empty{ font-size:12px; color:var(--muted); padding:4px 2px; }
-  .plan-day.search-match{ border-color:var(--gold-dim); box-shadow:0 0 0 2px var(--gold-soft); }
   .plan-legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   #toastHost{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999;
@@ -915,17 +918,15 @@
       </div>
     </div>
     <input type="file" id="backupFileInput" accept="application/json" style="display:none;">
-    <div id="librarySearchRow"><input type="search" id="librarySearchInput" placeholder="Search titles, series, and sermon text…"></div>
     <div id="libraryStatusRow">
-      <span id="backupStatus"></span>
+      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+        <button class="btn filters-btn" id="libraryFiltersBtn">Filters<span class="filter-badge" id="libraryFilterBadge" style="display:none;"></span></button>
+        <span id="backupStatus"></span>
+      </div>
       <div id="sortToggle">
         <button data-sort="recent" class="active">Recent</button>
         <button data-sort="date">By Date</button>
       </div>
-    </div>
-    <div id="libraryFilterRow">
-      <select id="yearFilter" title="Filter by year"><option value="">All years</option></select>
-      <div id="seriesFilter"></div>
     </div>
     <div class="scroll"><div id="libraryList"></div></div>
   </div>
@@ -940,8 +941,9 @@
         <button class="btn icon" id="planNextBtn" title="Next month"><img class="mono-ic" src="icons/plannextbtn.png" data-light="icons/plannextbtn.png" data-dark="icons/plannextbtn-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
       </div>
     </div>
-    <div id="planSearchRow"><input type="search" id="planSearchInput" placeholder="Search series or sermon titles…"></div>
-    <div id="planSearchResults"></div>
+    <div id="planFilterBar">
+      <button class="btn filters-btn" id="planFiltersBtn">Filters<span class="filter-badge" id="planFilterBadge" style="display:none;"></span></button>
+    </div>
     <div class="scroll">
       <div id="planWeekdays">
         <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
@@ -1360,6 +1362,62 @@
         <button class="btn gold" id="dupKeepBBtn">Keep This One</button>
       </div>
       <button class="btn" id="dupKeepBothBtn" style="width:100%; margin-top:4px;">Keep Both (rename to tell them apart)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Filters trays: a left-side drawer (mirrors the existing right-side drawer used for Settings/
+     Account/etc.) holding multi-select "slicer" checklists rather than the old single-value
+     search bar + dropdown + chip row -- decided directly with the user after testing with a
+     decades-spanning dataset made the old inline controls feel cramped. Library and Plan each get
+     their own tray/state (same shape, not shared) since they filter two different underlying
+     collections and render entirely differently (a flat list vs a calendar grid). -->
+<div class="modal-overlay drawer-left" id="libraryFiltersModal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-header"><h2>Filters</h2><button class="btn icon" id="closeLibraryFiltersModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="scroll">
+      <div class="slicer-group">
+        <div class="slicer-label">Sermon</div>
+        <input type="search" id="libFilterSearchInput" placeholder="Search titles, series, text…">
+      </div>
+      <div class="slicer-group">
+        <div class="slicer-label">Series</div>
+        <div class="slicer-list" id="libFilterSeriesList"></div>
+      </div>
+      <div class="slicer-group">
+        <div class="slicer-label">Year</div>
+        <div class="slicer-list" id="libFilterYearList"></div>
+      </div>
+      <div class="slicer-group">
+        <div class="slicer-label">Month</div>
+        <div class="slicer-list" id="libFilterMonthList"></div>
+      </div>
+      <button class="btn" id="libFilterClearBtn" style="width:100%;">Clear All Filters</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay drawer-left" id="planFiltersModal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-header"><h2>Filters</h2><button class="btn icon" id="closePlanFiltersModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="scroll">
+      <div class="slicer-group">
+        <div class="slicer-label">Sermon</div>
+        <input type="search" id="planFilterSearchInput" placeholder="Search titles, series…">
+      </div>
+      <div class="slicer-group">
+        <div class="slicer-label">Series</div>
+        <div class="slicer-list" id="planFilterSeriesList"></div>
+      </div>
+      <div class="slicer-group">
+        <div class="slicer-label">Year</div>
+        <div class="slicer-list" id="planFilterYearList"></div>
+      </div>
+      <div class="slicer-group">
+        <div class="slicer-label">Month</div>
+        <div class="slicer-list" id="planFilterMonthList"></div>
+      </div>
+      <button class="btn" id="planFilterClearBtn" style="width:100%;">Clear All Filters</button>
     </div>
   </div>
 </div>
@@ -1875,11 +1933,83 @@
     b.addEventListener('click', ()=> showView(b.dataset.view));
   });
 
+  /* ============ FILTER SLICERS (shared by Library & Plan) ============
+     A left-side drawer of multi-select checklists, replacing what used to be a single-value
+     search bar + year dropdown + series chip row -- decided directly with the user once testing
+     with a decades-spanning dataset made the old inline controls feel cramped. Library and Plan
+     each keep their own filter state and distinct-value lists (they filter different collections
+     and render completely differently), but share this rendering/wiring mechanics since a
+     checkbox-list "slicer" is otherwise identical either way. */
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function monthOptionsFor(dates){
+    const present = new Set(dates.map(d=>d.slice(5,7)));
+    return MONTH_NAMES.map((name,i)=>({ value:String(i+1).padStart(2,'0'), label:name })).filter(m=>present.has(m.value));
+  }
+  function stringOptions(values){ return values.map(v=>({ value:v, label:v })); }
+  function renderSlicerList(containerId, options, activeSet, onChange){
+    const el = document.getElementById(containerId);
+    if(!options.length){ el.innerHTML = '<div class="slicer-empty">Nothing to filter by yet.</div>'; return; }
+    el.innerHTML = '';
+    options.forEach(opt=>{
+      const row = document.createElement('label');
+      row.className = 'slicer-option';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = activeSet.has(opt.value);
+      cb.addEventListener('change', ()=>{
+        if(cb.checked) activeSet.add(opt.value); else activeSet.delete(opt.value);
+        onChange();
+      });
+      const span = document.createElement('span');
+      span.textContent = opt.label;
+      row.append(cb, span);
+      el.appendChild(row);
+    });
+  }
+  function countActiveFilters(f){ return f.series.size + f.years.size + f.months.size + (f.search.trim() ? 1 : 0); }
+  function updateFilterBadge(badgeId, f){
+    const badge = document.getElementById(badgeId);
+    const n = countActiveFilters(f);
+    badge.style.display = n ? '' : 'none';
+    badge.textContent = String(n);
+  }
+  // A set-based filter with nothing checked means "don't filter on this dimension at all" (not
+  // "match nothing") -- otherwise every slicer would need to start with everything pre-checked.
+  function matchesFilterSet(value, activeSet){ return activeSet.size === 0 || activeSet.has(value); }
+
   /* ============ LIBRARY ============ */
-  let activeSeriesFilter = null;
-  let activeYearFilter = null; // a 4-digit year string, or null for all years
+  const libraryFilters = { series: new Set(), years: new Set(), months: new Set(), search: '' };
   let librarySortMode = 'recent'; // 'recent' | 'date'
-  let librarySearchQuery = '';
+
+  function renderLibraryFiltersTray(){
+    const active = sermons.filter(s=>!s.deleted);
+    renderSlicerList('libFilterSeriesList', stringOptions([...new Set(active.map(s=>s.series).filter(Boolean))].sort()), libraryFilters.series, onLibraryFilterChange);
+    renderSlicerList('libFilterYearList', stringOptions([...new Set(active.filter(s=>s.date).map(s=>s.date.slice(0,4)))].sort((a,b)=>b.localeCompare(a))), libraryFilters.years, onLibraryFilterChange);
+    renderSlicerList('libFilterMonthList', monthOptionsFor(active.filter(s=>s.date).map(s=>s.date)), libraryFilters.months, onLibraryFilterChange);
+    updateFilterBadge('libraryFilterBadge', libraryFilters);
+  }
+  function onLibraryFilterChange(){ renderLibrary(); updateFilterBadge('libraryFilterBadge', libraryFilters); }
+  document.getElementById('libFilterSearchInput').addEventListener('input', e=>{
+    libraryFilters.search = e.target.value;
+    onLibraryFilterChange();
+  });
+  document.getElementById('libFilterClearBtn').addEventListener('click', ()=>{
+    libraryFilters.series.clear(); libraryFilters.years.clear(); libraryFilters.months.clear();
+    libraryFilters.search = '';
+    document.getElementById('libFilterSearchInput').value = '';
+    renderLibraryFiltersTray();
+    renderLibrary();
+  });
+  document.getElementById('libraryFiltersBtn').addEventListener('click', ()=>{
+    renderLibraryFiltersTray();
+    document.getElementById('libraryFiltersModal').classList.add('open');
+  });
+  document.getElementById('closeLibraryFiltersModal').addEventListener('click', ()=>{
+    document.getElementById('libraryFiltersModal').classList.remove('open');
+  });
+  document.getElementById('libraryFiltersModal').addEventListener('click', e=>{
+    if(e.target.id === 'libraryFiltersModal') document.getElementById('libraryFiltersModal').classList.remove('open');
+  });
 
   // Searches title/series/section titles/item text (HTML stripped) -- the point is finding
   // that phrase, scripture, or story from a sermon written months or years ago, not just
@@ -1947,11 +2077,6 @@
     el.classList.toggle('stale', stale);
   }
 
-  document.getElementById('librarySearchInput').addEventListener('input', e=>{
-    librarySearchQuery = e.target.value;
-    renderLibrary();
-  });
-
   document.querySelectorAll('#sortToggle button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       librarySortMode = btn.dataset.sort;
@@ -1959,43 +2084,6 @@
       renderLibrary();
     });
   });
-
-  // Narrowing to a year first is what actually scales to a library spanning decades -- the
-  // series filter alone doesn't help for undated one-off sermons or a series that itself spans
-  // several years. A <select> rather than another chip row deliberately, since a chip row that
-  // has to hold 20+ years (one per year of ministry) stops being scannable long before a
-  // dropdown does.
-  function renderYearFilter(){
-    const years = [...new Set(sermons.filter(s=>!s.deleted && s.date).map(s=>s.date.slice(0,4)))].sort((a,b)=>b.localeCompare(a));
-    const sel = document.getElementById('yearFilter');
-    if(years.length <= 1){ sel.style.display = 'none'; activeYearFilter = null; return; }
-    sel.style.display = '';
-    sel.innerHTML = '<option value="">All years</option>' + years.map(y=>`<option value="${escapeHtml(y)}">${escapeHtml(y)}</option>`).join('');
-    sel.value = activeYearFilter || '';
-  }
-  document.getElementById('yearFilter').addEventListener('change', e=>{
-    activeYearFilter = e.target.value || null;
-    renderLibrary();
-  });
-
-  function renderSeriesFilter(){
-    const seriesSet = [...new Set(sermons.filter(s=>!s.deleted).map(s=>s.series).filter(Boolean))];
-    const wrap = document.getElementById('seriesFilter');
-    if(seriesSet.length===0){ wrap.innerHTML=''; return; }
-    wrap.innerHTML = '';
-    const allChip = document.createElement('div');
-    allChip.className = 'chip' + (activeSeriesFilter===null?' active':'');
-    allChip.textContent = 'All';
-    allChip.addEventListener('click', ()=>{ activeSeriesFilter=null; renderLibrary(); });
-    wrap.appendChild(allChip);
-    seriesSet.forEach(s=>{
-      const c = document.createElement('div');
-      c.className = 'chip' + (activeSeriesFilter===s?' active':'');
-      c.textContent = s;
-      c.addEventListener('click', ()=>{ activeSeriesFilter=s; renderLibrary(); });
-      wrap.appendChild(c);
-    });
-  }
 
   function makeSermonCard(s){
     const card = document.createElement('div');
@@ -2056,18 +2144,20 @@
   }
 
   function renderLibrary(){
-    renderYearFilter();
-    renderSeriesFilter();
     renderBackupStatus();
     const list = document.getElementById('libraryList');
     let items = sermons.filter(s=>!s.deleted);
-    if(activeYearFilter) items = items.filter(s=>s.date && s.date.slice(0,4)===activeYearFilter);
-    if(activeSeriesFilter) items = items.filter(s=>s.series===activeSeriesFilter);
-    const q = librarySearchQuery.trim().toLowerCase();
+    items = items.filter(s => matchesFilterSet(s.series||'', libraryFilters.series));
+    // An undated sermon can't match a specific year/month, so it's excluded the moment either
+    // filter is actually narrowed -- only shows when that dimension isn't filtered at all.
+    items = items.filter(s => libraryFilters.years.size===0 || (!!s.date && libraryFilters.years.has(s.date.slice(0,4))));
+    items = items.filter(s => libraryFilters.months.size===0 || (!!s.date && libraryFilters.months.has(s.date.slice(5,7))));
+    const q = libraryFilters.search.trim().toLowerCase();
     if(q) items = items.filter(s=>sermonMatchesQuery(s, q));
+    const anyFilterActive = countActiveFilters(libraryFilters) > 0;
     if(items.length===0){
-      list.innerHTML = (q || activeSeriesFilter || activeYearFilter)
-        ? `<div id="emptyLibrary">No sermons match. Try a different search or filter.</div>`
+      list.innerHTML = anyFilterActive
+        ? `<div id="emptyLibrary">No sermons match. Try different filters.</div>`
         : `<div id="emptyLibrary">No sermons yet.<br>Tap "+ New" to start prepping your first message.</div>`;
       return;
     }
@@ -2117,14 +2207,30 @@
 
   function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 
+  // Filters narrow which entries show in whatever month is already visible -- Prev/Next/Today
+  // still navigate manually. Decided directly with the user over the alternative (auto-jump to
+  // the nearest match): a Month slicer specifically becomes genuinely useful this way ("show me
+  // every December across all years" instead of just the one currently on screen), and Prev/Next
+  // stays the one, predictable way to move through time.
+  const planFilters = { series: new Set(), years: new Set(), months: new Set(), search: '' };
+  function planFilteredSermons(){
+    const q = planFilters.search.trim().toLowerCase();
+    return sermons.filter(s=>!s.deleted)
+      .filter(s => matchesFilterSet(s.series||'', planFilters.series))
+      .filter(s => planFilters.years.size===0 || (!!s.date && planFilters.years.has(s.date.slice(0,4))))
+      .filter(s => planFilters.months.size===0 || (!!s.date && planFilters.months.has(s.date.slice(5,7))))
+      .filter(s => !q || (s.title||'').toLowerCase().includes(q) || (s.series||'').toLowerCase().includes(q));
+  }
+
   function renderPlan(){
     const grid = document.getElementById('planGrid');
     const label = document.getElementById('planMonthLabel');
     const legend = document.getElementById('planLegend');
     label.textContent = planMonth.toLocaleDateString(undefined, { month:'long', year:'numeric' });
 
+    const filtered = planFilteredSermons();
     const byDate = {};
-    sermons.filter(s=>!s.deleted).forEach(s=>{ if(s.date){ (byDate[s.date] = byDate[s.date] || []).push(s); } });
+    filtered.forEach(s=>{ if(s.date){ (byDate[s.date] = byDate[s.date] || []).push(s); } });
 
     const firstOfMonth = new Date(planMonth);
     const startWeekday = firstOfMonth.getDay();
@@ -2161,8 +2267,10 @@
       grid.appendChild(cell);
     }
 
-    // Legend: one dot per distinct series appearing anywhere, so colors stay meaningful across months
-    const seriesSet = [...new Set(sermons.filter(s=>!s.deleted).map(s=>s.series).filter(Boolean))];
+    // Legend: one dot per distinct series among currently-filtered entries (not every series that
+    // exists at all) -- an unfiltered legend entry with zero visible dots anywhere reads as a
+    // bug, not as "this series exists elsewhere."
+    const seriesSet = [...new Set(filtered.map(s=>s.series).filter(Boolean))];
     if(seriesSet.length){
       legend.innerHTML = seriesSet.map(sName =>
         `<div class="plan-legend-item"><span class="plan-legend-dot" style="background:${colorForSeries(sName)}"></span>${escapeHtml(sName)}</div>`
@@ -2172,58 +2280,34 @@
     }
   }
 
-  // Search, not a drag-reorderable list -- decided directly with the user: across decades of
-  // series, clicking prev/next through hundreds of months to find one sermon doesn't scale, but
-  // a sermon's actual scheduled date is meaningful information worth keeping visible, so search
-  // jumps the calendar TO the match's month rather than replacing the calendar with a plain list.
-  let planHighlightTimer = null;
-  function jumpToPlanSermon(s){
-    if(!s.date) return;
-    planMonth = new Date(s.date + 'T00:00:00');
-    planMonth.setDate(1);
-    planMonth.setHours(0,0,0,0);
+  function renderPlanFiltersTray(){
+    const active = sermons.filter(s=>!s.deleted);
+    renderSlicerList('planFilterSeriesList', stringOptions([...new Set(active.map(s=>s.series).filter(Boolean))].sort()), planFilters.series, onPlanFilterChange);
+    renderSlicerList('planFilterYearList', stringOptions([...new Set(active.filter(s=>s.date).map(s=>s.date.slice(0,4)))].sort((a,b)=>b.localeCompare(a))), planFilters.years, onPlanFilterChange);
+    renderSlicerList('planFilterMonthList', monthOptionsFor(active.filter(s=>s.date).map(s=>s.date)), planFilters.months, onPlanFilterChange);
+    updateFilterBadge('planFilterBadge', planFilters);
+  }
+  function onPlanFilterChange(){ renderPlan(); updateFilterBadge('planFilterBadge', planFilters); }
+  document.getElementById('planFilterSearchInput').addEventListener('input', e=>{
+    planFilters.search = e.target.value;
+    onPlanFilterChange();
+  });
+  document.getElementById('planFilterClearBtn').addEventListener('click', ()=>{
+    planFilters.series.clear(); planFilters.years.clear(); planFilters.months.clear();
+    planFilters.search = '';
+    document.getElementById('planFilterSearchInput').value = '';
+    renderPlanFiltersTray();
     renderPlan();
-    document.getElementById('planSearchResults').classList.remove('open');
-    document.getElementById('planSearchInput').value = '';
-    planSearchQuery = '';
-    const cell = findPlanDayCell(s.date);
-    if(cell){
-      clearTimeout(planHighlightTimer);
-      document.querySelectorAll('.plan-day.search-match').forEach(el => el.classList.remove('search-match'));
-      cell.classList.add('search-match');
-      cell.scrollIntoView({ block:'center', behavior:'smooth' });
-      planHighlightTimer = setTimeout(()=> cell.classList.remove('search-match'), 3000);
-    }
-  }
-  function findPlanDayCell(dateStr){
-    return [...document.querySelectorAll('#planGrid .plan-day')].find(el => el.dataset.date === dateStr) || null;
-  }
-  let planSearchQuery = '';
-  function renderPlanSearchResults(){
-    const wrap = document.getElementById('planSearchResults');
-    const q = planSearchQuery.trim().toLowerCase();
-    if(!q){ wrap.classList.remove('open'); wrap.innerHTML = ''; return; }
-    const matches = sermons.filter(s => !s.deleted && (
-      (s.title||'').toLowerCase().includes(q) || (s.series||'').toLowerCase().includes(q)
-    )).sort((a,b) => (a.date||'').localeCompare(b.date||'')).slice(0,30);
-    wrap.classList.add('open');
-    if(!matches.length){ wrap.innerHTML = `<div class="plan-search-empty">No series or sermon titles match "${escapeHtml(planSearchQuery.trim())}".</div>`; return; }
-    wrap.innerHTML = '';
-    matches.forEach(s=>{
-      const row = document.createElement('div');
-      row.className = 'plan-search-result';
-      const dateStr = s.date ? new Date(s.date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : 'No date';
-      row.innerHTML = `
-        <span class="psr-dot" style="background:${colorForSeries(s.series)}"></span>
-        <span class="psr-title">${escapeHtml(s.title || 'Untitled Sermon')}${s.series?' · '+escapeHtml(s.series):''}</span>
-        <span class="psr-date">${escapeHtml(dateStr)}</span>`;
-      row.addEventListener('click', ()=> jumpToPlanSermon(s));
-      wrap.appendChild(row);
-    });
-  }
-  document.getElementById('planSearchInput').addEventListener('input', e=>{
-    planSearchQuery = e.target.value;
-    renderPlanSearchResults();
+  });
+  document.getElementById('planFiltersBtn').addEventListener('click', ()=>{
+    renderPlanFiltersTray();
+    document.getElementById('planFiltersModal').classList.add('open');
+  });
+  document.getElementById('closePlanFiltersModal').addEventListener('click', ()=>{
+    document.getElementById('planFiltersModal').classList.remove('open');
+  });
+  document.getElementById('planFiltersModal').addEventListener('click', e=>{
+    if(e.target.id === 'planFiltersModal') document.getElementById('planFiltersModal').classList.remove('open');
   });
 
   document.getElementById('planPrevBtn').addEventListener('click', ()=>{
