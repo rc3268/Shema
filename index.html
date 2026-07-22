@@ -610,8 +610,12 @@
   .ipick-card .illust-usage{ margin-bottom:0; margin-top:6px; }
 
   /* ===== PRESENT (unchanged core) ===== */
-  #presentTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; position:relative; overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  #presentTop::-webkit-scrollbar{ display:none; }
+  #presentTop{ display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; position:relative; }
+  .present-top-scroll{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex:1; min-width:0;
+    overflow-x:auto; -webkit-overflow-scrolling:touch;
+  }
+  .present-top-scroll::-webkit-scrollbar{ display:none; }
   .present-left{ flex-shrink:0; }
   .top-actions{ flex-shrink:0; }
   #presentSermonInfo{ flex:1; min-width:0; text-align:center; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-family:'Playfair Display',serif; color:var(--text); opacity:0.85; font-size:13px; padding:0 14px; }
@@ -678,7 +682,23 @@
   }
   #emptyPresent{ color:var(--muted); font-size:18px; text-align:center; margin-top:15vh; line-height:1.6; }
   #presentNav{ display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--panel); border-top:1px solid var(--line); flex-shrink:0; padding-bottom:calc(12px + env(safe-area-inset-bottom)); }
-  .nav-btn{ background:var(--panel-2); border:1px solid var(--line); color:var(--text); padding:12px 22px; border-radius:10px; font-size:16px; font-weight:600; font-family:'Playfair Display',serif; cursor:pointer; min-width:100px; }
+  /* Fluid, not a fixed size that only ever changed at the 768px breakpoint below -- on an actual
+     phone (e.g. ~390-430px) that breakpoint never applied at all, so three min-width:100px,
+     16px-font buttons in a row read as disproportionately large next to everything else in this
+     bar, which *does* shrink for narrow screens. clamp() scales continuously with viewport width
+     instead of jumping at one breakpoint: the max end matches exactly what this already rendered
+     at 768px+ (unchanged there), the min end is a legible ~12pt floor, chosen directly per a
+     request to keep it readable at the small end while not exceeding today's look at the large
+     end. calc(100vw - 360px) * slope is the standard fluid-interpolation formula, anchored between
+     a 360px (narrow phone) and 768px (existing tablet/desktop breakpoint) viewport range so it
+     reaches exactly the old fixed values at both known reference points, not arbitrary new ones. */
+  .nav-btn{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:10px;
+    font-weight:600; font-family:'Playfair Display',serif; cursor:pointer;
+    font-size:clamp(16px, calc(16px + (100vw - 360px) * 0.0074), 19px);
+    padding:clamp(8px, calc(8px + (100vw - 360px) * 0.0196), 16px) clamp(14px, calc(14px + (100vw - 360px) * 0.0392), 30px);
+    min-width:clamp(64px, calc(64px + (100vw - 360px) * 0.0882), 100px);
+  }
   .nav-btn:disabled{ opacity:.35; }
   #navCounter{ color:var(--muted); font-size:13px; font-family:'IBM Plex Mono',monospace; }
   .present-nav-center{ display:flex; flex-direction:column; align-items:center; gap:4px; }
@@ -789,7 +809,6 @@
     .timer-btn{ min-width:42px; font-size:14px; }
     .icon-btn{ min-width:42px; height:42px; font-size:14px; }
     :root{ --title-size:56px; --body-size:32px; }
-    .nav-btn{ padding:16px 30px; font-size:19px; }
     #sectionContent{ max-width:none; }
     #stage{ padding-left:50px; padding-right:50px; }
     .view-header h1{ font-size:24px; }
@@ -970,19 +989,28 @@
   <!-- ===== PRESENT ===== -->
   <div class="view" id="view-present">
     <div id="presentTop">
-      <div class="present-left" style="display:flex; align-items:center; gap:16px; min-width:0;">
-        <div id="presentBrand"><img src="icons/brandbar.png" data-light="icons/brandbar.png" data-dark="icons/presentbrand.png" class="brand-ic" alt=""><span>shema</span></div>
-        <div class="timer-block">
-          <div id="clockDisplay">--:--</div>
-          <span class="divider"></span>
-          <div class="countdown-row">
-            <button class="timer-btn" id="playBtn" title="Start/Pause countdown">Play</button>
-            <div id="timerDisplay">00:00</div>
-            <button class="timer-btn" id="resetBtn" title="Reset countdown">Reset</button>
+      <!-- Everything except top-actions lives in this inner scroller -- on a narrow phone, the
+           brand mark + timer + sermon info genuinely don't all fit one row, and the font-size/
+           dark-mode toggles must never end up scrolled off-screen and undiscoverable (that's
+           exactly what happened before this: nothing pinned meant they could land past the right
+           edge, reachable only by a scroll nobody knew was there), so they're kept outside,
+           always visible, instead of being just more items in the scrollable row. Same pattern as
+           Practice's own top bar (.practice-top-scroll / #practiceFinishBtn). -->
+      <div class="present-top-scroll">
+        <div class="present-left" style="display:flex; align-items:center; gap:16px; min-width:0;">
+          <div id="presentBrand"><img src="icons/brandbar.png" data-light="icons/brandbar.png" data-dark="icons/presentbrand.png" class="brand-ic" alt=""><span>shema</span></div>
+          <div class="timer-block">
+            <div id="clockDisplay">--:--</div>
+            <span class="divider"></span>
+            <div class="countdown-row">
+              <button class="timer-btn" id="playBtn" title="Start/Pause countdown">Play</button>
+              <div id="timerDisplay">00:00</div>
+              <button class="timer-btn" id="resetBtn" title="Reset countdown">Reset</button>
+            </div>
           </div>
         </div>
+        <div id="presentSermonInfo"></div>
       </div>
-      <div id="presentSermonInfo"></div>
       <div class="top-actions">
         <button class="icon-btn" id="fontBtn" title="Text size"><img class="size-ic" src="icons/fontbtn.png" data-light="icons/fontbtn.png" data-dark="icons/fontbtn-dark.png" style="height:18px;width:18px;display:block;" alt=""></button>
         <button class="icon-btn dark-toggle" id="darkModeBtnPresent" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:16px;width:16px;display:block;" alt=""></button>
@@ -1007,11 +1035,15 @@
        but layout containers get their own practice-prefixed classes -- see the CSS block below. -->
   <div class="view" id="view-practice">
     <div class="practice-top">
-      <!-- Everything except Finish lives in this inner scroller -- on a narrow phone the full
-           control set (timer, Discard, sermon name, Notes, Takes, dark toggle, Finish) is
-           genuinely too wide for one row, and Finish (stops + saves the take) is the one button
-           that must never end up scrolled off-screen and undiscoverable, so it's kept outside,
-           always visible, instead of being just another item in the scrollable row. -->
+      <!-- Everything except top-actions and Finish lives in this inner scroller -- on a narrow
+           phone the full control set (timer, Discard, sermon name, Notes, Takes, dark toggle,
+           Finish) is genuinely too wide for one row. Finish (stops + saves the take) and Notes/
+           Takes/dark-toggle are all controls that must never end up scrolled off-screen and
+           undiscoverable -- a real report on an actual phone found Notes/Takes doing exactly that
+           while they still lived inside this scroller, the same failure mode Finish was already
+           pulled out to avoid -- so all of them are kept outside, always visible, instead of
+           being just more items in the scrollable row. Only the timer and sermon name, which are
+           read-only/informational rather than controls, stay in the scroller. -->
       <div class="practice-top-scroll">
         <div class="timer-block">
           <div class="countdown-row">
@@ -1021,11 +1053,11 @@
           </div>
         </div>
         <div class="practice-sermon-info" id="practiceSermonInfo"></div>
-        <div class="top-actions">
-          <button class="btn icon" id="practiceNotesBtn" title="Practice notes for this sermon">Notes</button>
-          <button class="btn icon" id="practiceTakesBtn" title="Past takes for this sermon">Takes</button>
-          <button class="icon-btn dark-toggle" id="darkModeBtnPractice" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:16px;width:16px;display:block;" alt=""></button>
-        </div>
+      </div>
+      <div class="top-actions">
+        <button class="btn icon" id="practiceNotesBtn" title="Practice notes for this sermon">Notes</button>
+        <button class="btn icon" id="practiceTakesBtn" title="Past takes for this sermon">Takes</button>
+        <button class="icon-btn dark-toggle" id="darkModeBtnPractice" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:16px;width:16px;display:block;" alt=""></button>
       </div>
       <button class="btn gold" id="practiceFinishBtn" title="Stop recording and save this take">Finish</button>
     </div>
