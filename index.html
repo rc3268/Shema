@@ -1485,42 +1485,73 @@
     persistHistory();
   }
 
-  // Migrate older sermons (separate line/bullet/run types, a numeric indent field, a fromIllustration
-  // flag) onto the current 4-type model (block/quiet/scripture/illustration), where bullets and
-  // indentation are just real HTML structure inside a block rather than separate fields.
-  function normalizeItem(it){
-    if(it.fromIllustration){ it.type = 'illustration'; delete it.fromIllustration; }
-    if(it.type === 'bullet'){
-      it.text = '<ul><li>' + seedRichHtml(it.text) + '</li></ul>';
-      it.type = 'block';
-    } else if(it.type === 'run'){
-      it.text = '<strong>' + seedRichHtml(it.text) + '</strong>';
-      it.type = 'block';
-    } else if(it.type === 'para' || !it.type){
-      it.type = 'block';
+  // ---- Versioned schema migration -----------------------------------------------------------
+  // A record's `schemaVersion` says which shape it was last written in; SCHEMA[kind].current is
+  // the shape this build reads/writes. migrateToCurrent() walks a record forward one version at
+  // a time, running only the steps it actually needs -- a sermon from build N runs every step
+  // from N to current in order (so skipping an app update never skips a migration), while a
+  // sermon already on the current version costs one number comparison and nothing else. That
+  // last part matters at scale: with a library of decades of sermons, re-running full-item
+  // migration work on every record on every load (the old, unconditional `normalizeItem` on
+  // every item every time) is wasted work for the overwhelming majority that are already current.
+  // Adding a future migration is: bump the relevant `current`, add one `migrations[oldVersion]`
+  // function -- never touch this walker or any other migration step.
+  // Templates aren't in here -- their shape (name/desc/sections-as-plain-strings) has never
+  // changed and carries no schemaVersion field at all; if that ever changes, give it the same
+  // `current`/`migrations` entry and a normalizeTemplate() wrapper, following this exact pattern.
+  const SCHEMA = {
+    sermon: { current: 2, migrations: { 1: migrateSermonV1toV2 } },
+    illustration: { current: 1, migrations: {} },
+  };
+  function migrateToCurrent(kind, record){
+    const spec = SCHEMA[kind];
+    let v = record.schemaVersion || 1;
+    while(v < spec.current){
+      const step = spec.migrations[v];
+      if(step) step(record);
+      v++;
     }
-    if(!['block','quiet','scripture','illustration'].includes(it.type)) it.type = 'block';
-    it.text = sanitizeRichText(seedRichHtml(it.text));
-    delete it.indent;
-    return it;
+    record.schemaVersion = spec.current;
+    return record;
+  }
+  // v1 -> v2: collapses the old separate line/bullet/run types, a numeric indent field, and a
+  // fromIllustration flag onto the current 4-type model (block/quiet/scripture/illustration),
+  // where bullets and indentation are just real HTML structure inside a block rather than
+  // separate fields. Only ever runs once per record, the first time it's loaded on a build that
+  // understands v2 -- not on every load forever the way the coercion it replaces used to.
+  function migrateSermonV1toV2(s){
+    s.sections.forEach(sec => sec.items.forEach(it => {
+      if(it.fromIllustration){ it.type = 'illustration'; delete it.fromIllustration; }
+      if(it.type === 'bullet'){
+        it.text = '<ul><li>' + seedRichHtml(it.text) + '</li></ul>';
+        it.type = 'block';
+      } else if(it.type === 'run'){
+        it.text = '<strong>' + seedRichHtml(it.text) + '</strong>';
+        it.type = 'block';
+      } else if(it.type === 'para' || !it.type){
+        it.type = 'block';
+      }
+      if(!['block','quiet','scripture','illustration'].includes(it.type)) it.type = 'block';
+      delete it.indent;
+    }));
   }
   function normalizeSermon(s){
-    if(!s.schemaVersion) s.schemaVersion = 1;
-    // A restored backup can come from a very old build whose export shape doesn't match this
-    // one -- if `sections` (or a section's `items`) isn't actually an array, coercing to empty
-    // here means the sermon loses that stray content but the app (and everything else in it)
-    // keeps working, instead of a `.forEach` on a non-array throwing and taking the whole load
-    // down with it.
+    // Shape safety runs unconditionally, regardless of the declared schemaVersion -- a restored
+    // backup or a hand-edited export can claim any version while still not actually matching it,
+    // and a corrupt/foreign shape here (e.g. `sections` isn't an array) must degrade gracefully
+    // (losing that stray content) rather than let a `.forEach` on a non-array throw and take the
+    // whole app load down with it. This is defensive coercion, not a migration step, so it isn't
+    // gated by version and isn't in SCHEMA.sermon.migrations.
     if(!Array.isArray(s.sections)) s.sections = [];
-    s.sections.forEach(sec => {
-      if(!Array.isArray(sec.items)) sec.items = [];
-      sec.items.forEach(normalizeItem);
-    });
+    s.sections.forEach(sec => { if(!Array.isArray(sec.items)) sec.items = []; });
+    migrateToCurrent('sermon', s);
+    // Rich-text sanitization is hygiene, not a migration -- always reapplied, cheap, and
+    // idempotent, so it stays outside the version gate too.
+    s.sections.forEach(sec => sec.items.forEach(it => { it.text = sanitizeRichText(seedRichHtml(it.text)); }));
     return s;
   }
   function normalizeIllustration(ill){
-    if(!ill.schemaVersion) ill.schemaVersion = 1;
-    return ill;
+    return migrateToCurrent('illustration', ill);
   }
   sermons.forEach(normalizeSermon);
   illustrations.forEach(normalizeIllustration);
@@ -1557,7 +1588,7 @@
   function newSermonFromTemplate(tpl, presetDate){
     return {
       id: uid(),
-      schemaVersion: 1,
+      schemaVersion: SCHEMA.sermon.current,
       title: '',
       series: '',
       date: presetDate || new Date().toISOString().slice(0,10),
@@ -3188,7 +3219,7 @@
       const ill = illustrations.find(x=>x.id===editingIllustId);
       ill.title=title; ill.tags=tags; ill.body=body; ill.imageData=editingIllustImage; ill.updatedAt=Date.now();
     } else {
-      illustrations.push({ id:uid(), schemaVersion:1, title, tags, body, imageData:editingIllustImage, updatedAt:Date.now() });
+      illustrations.push({ id:uid(), schemaVersion:SCHEMA.illustration.current, title, tags, body, imageData:editingIllustImage, updatedAt:Date.now() });
     }
     persistIllust();
     illustModal.classList.remove('open');
