@@ -90,6 +90,22 @@ Also introduced a **Settings screen** (gear icon, replacing the old person-icon 
 - No build step, no test framework in the repo. Verification during development has relied on headless Playwright scripts (spun up ad hoc against a local `python3 -m http.server`) to check layout, drag-and-drop, and console errors across viewport sizes — there's no persisted test suite, so re-verify UI changes manually/via a quick script rather than assuming coverage exists.
 - Before making a UI/UX call that trades off discoverability, affordance, or live-presentation risk (anything touching Present mode especially), reason explicitly about who's affected and how — this project's design decisions have consistently favored a short written risk/tradeoff evaluation over silently picking a default.
 
+## Backlog (user punch list, added 2026-07-21)
+
+Given verbatim by the user, then triaged into an execution order (fastest/safest first, biggest open design decisions last). As each is finished, move it into History below and delete it from this list rather than marking it done in place, so this section always reflects only what's actually still outstanding.
+
+1. **Present font-size buttons clip into the Present pane when selected** — bug, quick.
+2. **Shema icon wrong color in Present, light mode** — should match Library's light-mode color. Bug, quick.
+3. **Shema icon wrong color in Library, dark mode** — should match Present's dark-mode color. Bug, quick.
+4. **Remove the KJV lookup/insert feature entirely** — user's call: the translation itself doesn't fit the app's premium positioning. Bounded removal (button, parser, `data/kjv.json`, sw.js precache entry).
+5. **Audit and list which icons still need a dedicated custom image** (vs. a generic/placeholder one) — research task, produces a list for the user to commission/design against, not new art itself.
+6. **A real strategy for handling sermons created by older app builds when the app updates in the future** — directly motivated by the same-day RLS-id-collision incident (History, "root cause confirmed" entry): `normalizeSermon` already defends against shape corruption, but there's no formal, versioned migration path yet, just ad hoc defensive coercion. Needs a `schemaVersion`-gated migration function design, not just more defensive coercion.
+7. **Sort options on the Library page**, designed to stay usable across potentially decades of accumulated sermons (not just a simple A-Z toggle that degrades at scale).
+8. **Rework the Plan/calendar view's filtering** to work across decades of series -- user is explicitly unsure whether search or a drag-reorderable list is the better mechanism; needs a design decision, not just an implementation.
+9. **Practice Mode: tap-to-highlight a text range (not just a whole item) to attach a note, and show notes in Prepare in a way that relates them to the exact highlighted portion.** Reopens a previously deliberate decision (History, 2026-07-20, Practice Mode second slice) that chose item-level annotation specifically *because* "true character-range highlighting that survives re-renders and coexists with the item's existing rich-text markup is a genuinely hard persistence problem" — worth a real design pass, not a silent reversal, before implementing.
+10. **Flesh out a process for beta testers to test the full published app** before/around store launch — process/planning, not code.
+11. **New-user tutorial content** (screen capture + voiceover, possibly AI-assisted) — content production, not code; this environment can't record a real device screen, so this needs either a recording done by the user with a script/storyboard provided, or a different approach discussed first.
+
 ## History
 
 Dated as far back as the available commit history allows.
