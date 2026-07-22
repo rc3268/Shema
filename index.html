@@ -719,7 +719,7 @@
   .practice-section-content .line{ cursor:pointer; border-radius:6px; transition:background .12s ease; }
   .practice-section-content .line:active{ background:var(--panel-2); }
   .line.has-note::before{ content:''; display:inline-block; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--gold); vertical-align:middle; }
-  .practice-note-excerpt{ font-size:13px; color:var(--muted); font-style:italic; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+  .practice-note-excerpt{ font-size:13px; color:var(--muted); font-style:italic; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--line); max-height:120px; overflow-y:auto; white-space:pre-wrap; }
   .practice-note-input{
     width:100%; box-sizing:border-box; background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
     padding:10px 12px; font-size:15px; font-family:inherit; color:var(--text); resize:vertical;
@@ -3873,7 +3873,11 @@
     practiceNoteEditingItemId = item.id;
     practiceNoteEditingSectionId = section.id;
     const existing = noteForItem(practiceSermonId, item.id);
-    document.getElementById('practiceNoteExcerpt').textContent = htmlToPlainText(item.text).slice(0, 140) || '(no text)';
+    // Full text, not a truncated snippet -- a note attached to a long paragraph needs the whole
+    // thing visible to actually tell what the note is about (the excerpt scrolls on its own if
+    // it's long, see .practice-note-excerpt's max-height, so this can't push the Save button
+    // off-screen the way an unbounded excerpt inside the popup's own scroll area would).
+    document.getElementById('practiceNoteExcerpt').textContent = htmlToPlainText(item.text) || '(no text)';
     document.getElementById('practiceNoteInput').value = existing ? existing.note : '';
     document.getElementById('practiceNoteDeleteBtn').style.display = existing ? '' : 'none';
     if(practiceRunning){
