@@ -1,0 +1,433 @@
+{
+  "app": "shema",
+  "version": 1,
+  "exportedAt": "2026-07-22T12:00:00.000Z",
+  "exportedBy": "sample-fixture",
+  "sermons": [
+    {
+      "id": "smpl-serm-16",
+      "schemaVersion": 2,
+      "title": "The Blessed Life",
+      "series": "The Sermon on the Mount",
+      "date": "2026-01-11",
+      "updatedAt": 1752627600000,
+      "sections": [
+        {
+          "id": "smpl-sec-3",
+          "title": "Opening",
+          "items": [
+            {
+              "id": "smpl-it-1",
+              "type": "block",
+              "text": "Everyone is chasing a blessed life. We just disagree wildly about where to find it. The world hands us a formula: <strong>get more, climb higher, feel comfortable, be admired.</strong> Jesus climbs a hillside, sits down like a rabbi, and quietly rewrites the whole formula."
+            },
+            {
+              "id": "smpl-it-2",
+              "type": "quiet",
+              "text": "Pause here. Let the room settle before reading the text.",
+              "proInclude": false
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-5",
+          "title": "The Text",
+          "items": [
+            {
+              "id": "smpl-it-4",
+              "type": "scripture",
+              "text": "Matthew 5:1-12",
+              "proInclude": true
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-8",
+          "title": "The Upside-Down Kingdom",
+          "items": [
+            {
+              "id": "smpl-it-6",
+              "type": "block",
+              "text": "Notice who Jesus calls blessed: the poor in spirit, the mourning, the meek, the hungry. Not a single category the world would envy. This is the great reversal at the heart of the kingdom — God’s favor rests where we least expect to find it."
+            },
+            {
+              "id": "smpl-it-7",
+              "type": "block",
+              "text": "The word <em>blessed</em> here is not a wish. It is a declaration. Jesus is not saying <em>may you be happy someday</em>; He is announcing what is already true of those who belong to Him."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-12",
+          "title": "Blessed Are the Poor in Spirit",
+          "items": [
+            {
+              "id": "smpl-it-9",
+              "type": "block",
+              "text": "To be poor in spirit is to come to God with empty hands — no résumé, no bargaining chips, nothing to trade. It is the tax collector who would not lift his eyes, beating his chest: <em>God, be merciful to me, a sinner.</em>"
+            },
+            {
+              "id": "smpl-it-10",
+              "type": "scripture",
+              "text": "Luke 18:13"
+            },
+            {
+              "id": "smpl-it-11",
+              "type": "illustration",
+              "text": "A wealthy man once toured an art gallery and, at the end, complained loudly that he saw nothing worth admiring. The curator replied gently, “Sir, the paintings are no longer on trial. The visitors are.” We do not evaluate the kingdom from a seat of judgment. We come in empty, and we are the ones remade by what we behold.",
+              "proInclude": true
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-15",
+          "title": "Living It This Week",
+          "items": [
+            {
+              "id": "smpl-it-13",
+              "type": "block",
+              "text": "So here is the invitation for Monday morning: <strong>stop performing.</strong> Bring God your actual weakness, not your polished version. The blessed life does not begin when you finally have it together — it begins the moment you admit you never will, and reach for Him anyway.",
+              "proInclude": true
+            },
+            {
+              "id": "smpl-it-14",
+              "type": "quiet",
+              "text": "Close in prayer. Invite anyone who wants to come with empty hands to do so now.",
+              "proInclude": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "smpl-serm-29",
+      "schemaVersion": 2,
+      "title": "Salt and Light",
+      "series": "The Sermon on the Mount",
+      "date": "2026-01-18",
+      "updatedAt": 1752631200000,
+      "sections": [
+        {
+          "id": "smpl-sec-18",
+          "title": "Opening",
+          "items": [
+            {
+              "id": "smpl-it-17",
+              "type": "block",
+              "text": "Last week Jesus told us who is blessed. This week He tells us what the blessed are <em>for.</em> Two of the most ordinary things in the ancient world — salt and light — become His picture of the people of God in the world."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-20",
+          "title": "The Text",
+          "items": [
+            {
+              "id": "smpl-it-19",
+              "type": "scripture",
+              "text": "Matthew 5:13-16",
+              "proInclude": true
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-23",
+          "title": "You Are Salt",
+          "items": [
+            {
+              "id": "smpl-it-21",
+              "type": "block",
+              "text": "Salt does two things: it <strong>preserves</strong> and it <strong>flavors.</strong> Both require contact. Salt sealed in the shaker changes nothing. The danger Jesus names is not that salt becomes poison, but that it becomes <em>bland</em> — indistinguishable from everything around it."
+            },
+            {
+              "id": "smpl-it-22",
+              "type": "block",
+              "text": "A church that tastes exactly like the culture around it has, in Jesus’ words, lost its saltiness. The question is not whether we are busy. It is whether we are <em>distinct.</em>"
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-26",
+          "title": "You Are Light",
+          "items": [
+            {
+              "id": "smpl-it-24",
+              "type": "block",
+              "text": "Light exists to be seen. Jesus is almost playful here: no one lights a lamp and then hides it under a basket. And yet how often we do exactly that — dimming our lives to avoid notice."
+            },
+            {
+              "id": "smpl-it-25",
+              "type": "illustration",
+              "text": "Lighthouse keepers on the Atlantic coast used to say their job was not to shout at the storm or steer the ships. Their one task was to keep the light burning and let it be seen. They could not save a single vessel; they could only refuse to go dark. So it is with us.",
+              "proInclude": true
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-28",
+          "title": "Send Them Out",
+          "items": [
+            {
+              "id": "smpl-it-27",
+              "type": "block",
+              "text": "Verse 16 gives the aim: <strong>let your light shine before others, so that they may see your good works and give glory to your Father in heaven.</strong> The goal of a visible life is never our own reputation — it is that people trace the light back to its Source. Go be salt. Go be light. And make sure the glory lands where it belongs.",
+              "proInclude": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "smpl-serm-42",
+      "schemaVersion": 2,
+      "title": "Jehovah Jireh: The Lord Will Provide",
+      "series": "Names of God",
+      "date": "2026-08-02",
+      "updatedAt": 1752634800000,
+      "sections": [
+        {
+          "id": "smpl-sec-31",
+          "title": "Introduction",
+          "items": [
+            {
+              "id": "smpl-it-30",
+              "type": "block",
+              "text": "We learn the names of God the way we learn the character of a friend — not from a dictionary, but through what we walk through together. Today’s name was born on the hardest morning of Abraham’s life."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-34",
+          "title": "The Test",
+          "items": [
+            {
+              "id": "smpl-it-32",
+              "type": "scripture",
+              "text": "Genesis 22:1-2"
+            },
+            {
+              "id": "smpl-it-33",
+              "type": "block",
+              "text": "God asks for the one thing Abraham cannot imagine giving — the son of the promise. And Abraham rises <em>early</em> the next morning. There is no arguing, no delay; only a trust that has been built over decades of God keeping His word."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-38",
+          "title": "The Provision",
+          "items": [
+            {
+              "id": "smpl-it-35",
+              "type": "block",
+              "text": "At the last possible moment, a ram appears, caught in the thicket. The knife never falls. God Himself has supplied the sacrifice."
+            },
+            {
+              "id": "smpl-it-36",
+              "type": "scripture",
+              "text": "Genesis 22:13-14",
+              "proInclude": true
+            },
+            {
+              "id": "smpl-it-37",
+              "type": "block",
+              "text": "Abraham names the place <strong>Jehovah Jireh</strong> — <em>the LORD will provide.</em> Notice the tense. Not <em>provided</em>, past and finished, but <em>will provide.</em> He is naming God’s character for every mountain still to come."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-41",
+          "title": "What His Name Means for Monday",
+          "items": [
+            {
+              "id": "smpl-it-39",
+              "type": "block",
+              "text": "The mountain where God provided a substitute points forward to another hill outside Jerusalem, where God did not spare His own Son. If He would not withhold that, will He withhold anything you truly need? <strong>Jehovah Jireh</strong> is not a slogan for getting what we want; it is a promise that on the mountain of your deepest need, God will be there — and He will be enough.",
+              "proInclude": true
+            },
+            {
+              "id": "smpl-it-40",
+              "type": "illustration",
+              "text": "A missionary family, down to their last few coins in a foreign city, prayed over an empty table. That evening a stranger knocked with a bag of groceries, saying only that he had felt he was supposed to bring it to <em>this</em> door. He never returned, and they never learned his name. But they never forgot the name of the One who sent him.",
+              "proInclude": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "smpl-serm-54",
+      "schemaVersion": 2,
+      "title": "El Roi: The God Who Sees",
+      "series": "Names of God",
+      "date": "2026-08-09",
+      "updatedAt": 1752638400000,
+      "sections": [
+        {
+          "id": "smpl-sec-44",
+          "title": "Introduction",
+          "items": [
+            {
+              "id": "smpl-it-43",
+              "type": "block",
+              "text": "Here is something remarkable: the first person in all of Scripture to give God a name is not a patriarch or a prophet. She is a pregnant, runaway slave woman named Hagar, alone in a desert. And the name she gives Him still steadies the overlooked and forgotten today."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-47",
+          "title": "Hagar in the Wilderness",
+          "items": [
+            {
+              "id": "smpl-it-45",
+              "type": "scripture",
+              "text": "Genesis 16:7-8"
+            },
+            {
+              "id": "smpl-it-46",
+              "type": "block",
+              "text": "The angel of the LORD finds her by a spring in the wilderness and asks two of the gentlest questions in the Bible: <em>Where have you come from, and where are you going?</em> God is not gathering information. He is inviting a hurting woman to be fully known."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-50",
+          "title": "The Name She Gave Him",
+          "items": [
+            {
+              "id": "smpl-it-48",
+              "type": "scripture",
+              "text": "Genesis 16:13",
+              "proInclude": true
+            },
+            {
+              "id": "smpl-it-49",
+              "type": "block",
+              "text": "“You are a God of seeing,” she says — <strong>El Roi.</strong> The God who sees me. Not the God who glances, or who noticed once. The God whose gaze rests on the one everyone else walked past."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-53",
+          "title": "Seen and Known",
+          "items": [
+            {
+              "id": "smpl-it-51",
+              "type": "block",
+              "text": "You may be carrying something no one around you has noticed. A grief you smile over. A fear you have never said out loud. Hear Hagar’s discovery as your own: <strong>you are seen.</strong> The God of the universe knows your name, your road behind you, and your road ahead — and He has come to the wilderness to find you."
+            },
+            {
+              "id": "smpl-it-52",
+              "type": "quiet",
+              "text": "Give a long pause here. Some in the room need a moment to feel seen.",
+              "proInclude": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "smpl-serm-67",
+      "schemaVersion": 2,
+      "title": "A Living Hope",
+      "series": "",
+      "date": "2026-08-16",
+      "updatedAt": 1752642000000,
+      "sections": [
+        {
+          "id": "smpl-sec-56",
+          "title": "Opening",
+          "items": [
+            {
+              "id": "smpl-it-55",
+              "type": "block",
+              "text": "Peter writes to Christians who are scattered, pressured, and afraid. He does not open with advice or a rebuke. He opens with <em>worship</em> — because the antidote to fear is not effort, it is a bigger view of what God has already done."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-58",
+          "title": "The Text",
+          "items": [
+            {
+              "id": "smpl-it-57",
+              "type": "scripture",
+              "text": "1 Peter 1:3-9",
+              "proInclude": true
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-61",
+          "title": "Born Again to Hope",
+          "items": [
+            {
+              "id": "smpl-it-59",
+              "type": "block",
+              "text": "Peter calls it a <strong>living hope</strong> — as opposed to the dead hopes we so often lean on. A living hope is not wishful thinking; it is anchored in a historical fact: <em>the resurrection of Jesus Christ from the dead.</em>"
+            },
+            {
+              "id": "smpl-it-60",
+              "type": "block",
+              "text": "Our inheritance, he says, is <em>imperishable, undefiled, and unfading, kept in heaven for you.</em> Three words that describe nothing else you own. Everything here rusts, stains, and fades. This does not."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-64",
+          "title": "Tested Faith",
+          "items": [
+            {
+              "id": "smpl-it-62",
+              "type": "block",
+              "text": "Then Peter does something pastoral: he tells suffering people that their trials are not evidence that God has left. Faith, like gold, is proven in the fire — and comes out more precious than the gold that perishes."
+            },
+            {
+              "id": "smpl-it-63",
+              "type": "illustration",
+              "text": "A silversmith was asked how he knew when the refining was finished. He said, “When I can see my own reflection in the metal.” God keeps us in the fire only until His likeness begins to show — and not one moment longer."
+            }
+          ]
+        },
+        {
+          "id": "smpl-sec-66",
+          "title": "Closing Charge",
+          "items": [
+            {
+              "id": "smpl-it-65",
+              "type": "block",
+              "text": "So <strong>set your hope fully</strong> on the grace coming to you. Not partly. Not as a backup. Fully. Whatever you are walking through this week, you have a hope that is alive, an inheritance that cannot fade, and a Savior you love though you have not yet seen Him. Lift your head.",
+              "proInclude": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "illustrations": [
+    {
+      "id": "smpl-ill-68",
+      "schemaVersion": 1,
+      "title": "The Bridge Keeper's Sacrifice",
+      "tags": "sacrifice, love, gospel, substitution",
+      "body": "A man tended a great railway drawbridge over a river. One afternoon he brought his young son to work. When the signal came that a passenger train was approaching, he moved to lower the bridge — and saw, to his horror, that his son had climbed down into the gears below. He faced an impossible choice: leave the bridge up and save his boy, or lower it and save the hundreds aboard the train. With a cry no one heard over the roar, he lowered the bridge. The passengers rode past, reading their papers, never knowing the price of their safe crossing. It is a faint and imperfect echo of a Father who gave His Son so that we, unaware and unthanking, might pass safely home.",
+      "updatedAt": 1752645600000
+    },
+    {
+      "id": "smpl-ill-69",
+      "schemaVersion": 1,
+      "title": "A Compass in the Fog",
+      "tags": "guidance, feelings, truth, faith",
+      "body": "A young sailor once boasted that he never needed instruments — he could feel which way was north. One foggy night his feelings told him the harbor lay to the left; his compass insisted it lay to the right. He trusted his gut and ran aground within the hour. Feelings are real, but they are not reliable navigators. The Word of God is our compass: it does not bend to the fog, and it does not care how confident we feel about the wrong direction.",
+      "updatedAt": 1752649200000
+    },
+    {
+      "id": "smpl-ill-70",
+      "schemaVersion": 1,
+      "title": "The Cracked Water Pot",
+      "tags": "grace, weakness, usefulness, humility",
+      "body": "A servant carried water each day on a pole with two pots. One was perfect; the other had a crack and arrived half-empty. The cracked pot was ashamed. But the master said, “Did you notice the flowers? I planted seeds on your side of the path, and your leak has watered them every single day. Without your crack, there would be no beauty here.” God is not looking for flawless vessels. He is remarkably fond of using the cracked ones, and watering something lovely along the way.",
+      "updatedAt": 1752652800000
+    }
+  ],
+  "templates": []
+}

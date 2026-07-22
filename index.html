@@ -391,6 +391,10 @@
   .settings-row-label span:first-child{ font-size:15px; font-weight:600; color:var(--text); }
   .settings-row-sub{ font-size:12px; color:var(--muted); }
   .settings-row-chev{ color:var(--muted); font-size:18px; }
+  .settings-select{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text); font-size:13px;
+    border-radius:8px; padding:8px 10px; flex-shrink:0; box-sizing:border-box; max-width:52%;
+  }
 
   /* form modal (template create/edit) */
   #tplForm input{
@@ -1289,6 +1293,26 @@
         <div class="settings-row-label"><span>Restore from Backup</span><span class="settings-row-sub" id="settingsBackupStatusSub"></span></div>
         <span class="settings-row-chev">›</span>
       </div>
+      <div class="settings-row" id="settingsBibleVersionRow">
+        <div class="settings-row-label"><span>Bible Version</span><span class="settings-row-sub">Translation scripture lookups open in</span></div>
+        <select id="bibleVersionSelect" class="settings-select" title="Preferred Bible translation for lookups">
+          <option value="KJV">King James (KJV)</option>
+          <option value="NKJV">New King James (NKJV)</option>
+          <option value="ESV">English Standard (ESV)</option>
+          <option value="NIV">New International (NIV)</option>
+          <option value="NLT">New Living (NLT)</option>
+          <option value="CSB">Christian Standard (CSB)</option>
+          <option value="NASB20">New American Standard 2020 (NASB)</option>
+          <option value="NASB95">New American Standard 1995 (NASB95)</option>
+          <option value="LSB">Legacy Standard (LSB)</option>
+          <option value="AMP">Amplified (AMP)</option>
+          <option value="NET">New English Translation (NET)</option>
+          <option value="RSV">Revised Standard (RSV)</option>
+          <option value="ASV">American Standard (ASV)</option>
+          <option value="YLT">Young's Literal (YLT)</option>
+          <option value="WEB">World English (WEB)</option>
+        </select>
+      </div>
       <div class="settings-row" id="settingsDarkModeRow">
         <div class="settings-row-label"><span>Dark Mode</span></div>
         <button class="btn icon dark-toggle" id="darkModeBtn" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:16px;width:16px;display:block;" alt=""></button>
@@ -1458,6 +1482,12 @@
   const STORE_KEY_SERMONS = 'pulpit_sermons_v1';
   const STORE_KEY_ILLUST = 'pulpit_illustrations_v1';
   const STORE_KEY_HISTORY = 'shema_history_v1';
+  const BIBLE_VERSION_KEY = 'shema_bible_version';
+  // The user's preferred Blue Letter Bible translation code (see Settings > Bible Version).
+  // Defaults to KJV, which is also BLB's own default, so an untouched setting changes nothing.
+  function getBibleVersion(){
+    try { return localStorage.getItem(BIBLE_VERSION_KEY) || 'KJV'; } catch(e){ return 'KJV'; }
+  }
 
   function loadJSON(key, fallback){
     try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -2861,7 +2891,14 @@
         const match = SCRIPTURE_RE.exec(plain);
         const query = match ? match[0] : plain.slice(0, 60);
         if(!query.trim()){ showToast('Type a reference or passage first.', {danger:true}); return; }
-        window.open('https://www.blueletterbible.org/search/search.cfm?Criteria=' + encodeURIComponent(query), '_blank');
+        // Blue Letter Bible's search takes a `t=` translation code; appending the user's
+        // preferred version (Settings > Bible Version) opens the lookup straight into that
+        // translation instead of BLB's own default. KJV is the default and matches BLB's own,
+        // so it's a no-op change for anyone who never touches the setting.
+        const version = getBibleVersion();
+        let lookupUrl = 'https://www.blueletterbible.org/search/search.cfm?Criteria=' + encodeURIComponent(query);
+        if(version) lookupUrl += '&t=' + encodeURIComponent(version);
+        window.open(lookupUrl, '_blank');
       });
     }
 
@@ -4824,6 +4861,16 @@
   });
   document.getElementById('closeSettingsModal').addEventListener('click', ()=> settingsModal.classList.remove('open'));
   document.getElementById('syncNowBtn').addEventListener('click', manualSyncNow);
+  const bibleVersionSelect = document.getElementById('bibleVersionSelect');
+  if(bibleVersionSelect){
+    bibleVersionSelect.value = getBibleVersion();
+    // If a stored code ever falls outside the option list (e.g. a version BLB retired), the
+    // select silently shows nothing selected -- fall back to KJV so the control is never blank.
+    if(!bibleVersionSelect.value) bibleVersionSelect.value = 'KJV';
+    bibleVersionSelect.addEventListener('change', ()=>{
+      try { localStorage.setItem(BIBLE_VERSION_KEY, bibleVersionSelect.value); } catch(e){}
+    });
+  }
   document.getElementById('settingsAccountRow').addEventListener('click', ()=>{
     settingsModal.classList.remove('open');
     accountModal.classList.add('open');
