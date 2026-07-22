@@ -302,6 +302,18 @@
     padding-top:env(safe-area-inset-top);
   }
   .modal-overlay.drawer-right.open .modal-sheet{ transform:translateX(0); }
+  /* Centered variant: a genuine "stop and decide" moment (see duplicateSermonModal), distinct
+     from the bottom-sheet default's "quick contextual form" register. */
+  .modal-overlay.center-modal{ align-items:center; padding:24px; }
+  .modal-overlay.center-modal .modal-sheet{ border-radius:18px; max-width:440px; max-height:none; }
+  .dup-intro{ margin:0 0 16px; color:var(--muted); font-size:13px; line-height:1.5; }
+  .dup-candidate{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; margin-bottom:12px;
+  }
+  .dup-title{ font-family:'Playfair Display',serif; font-weight:700; font-size:16px; margin-bottom:4px; }
+  .dup-meta{ font-size:12px; color:var(--muted); margin-bottom:12px; }
+  .dup-candidate .btn{ width:100%; }
   .tpl-card{
     background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px;
   }
@@ -1327,6 +1339,31 @@
   </div>
 </div>
 
+<!-- Center-screen, not a bottom sheet, deliberately -- a possible duplicate is a data-integrity
+     decision, not a routine action, and the app's whole modal vocabulary otherwise means either
+     "quick contextual form" (bottom sheet) or "settle in and work" (drawer-right); this needed a
+     third, more insistent register. Only ever shown on navigating into Library (see showView),
+     never during Present/Practice. -->
+<div class="modal-overlay center-modal" id="duplicateSermonModal">
+  <div class="modal-sheet duplicate-sheet">
+    <div class="modal-sheet-header"><h2>Possible Duplicate</h2></div>
+    <div class="scroll" style="padding-top:0;">
+      <p class="dup-intro">These two sermons have very similar titles. Keep one, or keep both.</p>
+      <div class="dup-candidate">
+        <div class="dup-title" id="dupATitle"></div>
+        <div class="dup-meta" id="dupAMeta"></div>
+        <button class="btn gold" id="dupKeepABtn">Keep This One</button>
+      </div>
+      <div class="dup-candidate">
+        <div class="dup-title" id="dupBTitle"></div>
+        <div class="dup-meta" id="dupBMeta"></div>
+        <button class="btn gold" id="dupKeepBBtn">Keep This One</button>
+      </div>
+      <button class="btn" id="dupKeepBothBtn" style="width:100%; margin-top:4px;">Keep Both (rename to tell them apart)</button>
+    </div>
+  </div>
+</div>
+
 <!-- Self-hosted, not CDN-loaded -- same zero-runtime-CDN-dependency convention as the fonts,
      so the app still loads offline even though signing in obviously still needs a network. -->
 <script src="vendor/supabase.js"></script>
@@ -1529,6 +1566,148 @@
     persistIllust();
   }
 
+  /* ============ SERMON DUPLICATE DETECTION ============
+     A different problem from sync conflicts (same id, disagreeing content) -- this is two
+     *different* ids that a human would recognize as the same sermon, most commonly because two
+     devices each independently ended up with their own id for it (e.g. each one separately hit
+     the 42501 id-collision recovery and reassigned to its own fresh id -- see context.md). Since
+     they're genuinely different ids, ordinary sync correctly treats them as two unrelated records
+     and pulls both to every device forever; nothing about id-based sync was ever going to catch
+     this on its own. Detection is title-similarity based (fuzzy, not just exact-match), since a
+     real duplicate rarely has a byte-identical title ("Grace Pt 1" vs "Grace pt. 1").
+     Deliberately no new synced field for "already resolved, keep both" -- renaming both sermons
+     with a distinguishing suffix (below) is itself what gets synced, through the exact same
+     sermons sync path every other edit already uses, and it's what stops future passes from
+     re-matching the same pair (their titles no longer look similar). No schema change needed. */
+  function normalizeForSimilarity(s){
+    return (s||'').toLowerCase().trim().replace(/[^\w\s]/g,'').replace(/\s+/g,' ');
+  }
+  function levenshteinDistance(a, b){
+    const m = a.length, n = b.length;
+    if(m === 0) return n;
+    if(n === 0) return m;
+    let prev = Array.from({length:n+1}, (_,j)=>j);
+    for(let i=1;i<=m;i++){
+      const row = [i];
+      for(let j=1;j<=n;j++){
+        row[j] = a[i-1] === b[j-1] ? prev[j-1] : 1 + Math.min(prev[j-1], prev[j], row[j-1]);
+      }
+      prev = row;
+    }
+    return prev[n];
+  }
+  // A trailing number is very often a deliberate series index ("Grace Pt 1" / "Grace Pt 2"),
+  // not a typo -- those titles are otherwise nearly identical and would clear the similarity
+  // threshold easily (one digit apart in a ten-character string), which would make this fire on
+  // every multi-part series a pastor writes. If both titles end in a number and the numbers
+  // actually differ, that's a strong, specific signal they're deliberately different parts, not
+  // a duplicate -- checked before the general similarity ratio, not folded into it.
+  function extractTrailingNumber(title){
+    const m = normalizeForSimilarity(title).match(/(\d+)\s*$/);
+    return m ? m[1] : null;
+  }
+  function titleSimilarity(a, b){
+    const na = normalizeForSimilarity(a), nb = normalizeForSimilarity(b);
+    if(!na || !nb) return 0;
+    if(na === nb) return 1;
+    const numA = extractTrailingNumber(a), numB = extractTrailingNumber(b);
+    if(numA !== null && numB !== null && numA !== numB) return 0;
+    return 1 - levenshteinDistance(na, nb) / Math.max(na.length, nb.length);
+  }
+  const DUPLICATE_TITLE_THRESHOLD = 0.82;
+  const KEPT_DUPLICATE_TAG_RE = /\s*\(kept duplicate,[^)]*\)\s*$/i;
+  function stripDuplicateTag(title){
+    return (title||'').replace(KEPT_DUPLICATE_TAG_RE, '');
+  }
+  // A title already carrying this tag was explicitly reviewed and kept as a deliberate
+  // duplicate -- never re-flag it, regardless of how similar the *untagged* base title still
+  // looks. The base title is deliberately left recognizable rather than mangled beyond
+  // recognition, so on a long shared title the distinguishing suffix alone isn't guaranteed to
+  // pull the similarity ratio below threshold on its own -- this explicit tag check is the real
+  // "already resolved" signal, not an incidental side effect of string-distance math.
+  function isTaggedAsKeptDuplicate(title){
+    return KEPT_DUPLICATE_TAG_RE.test(title||'');
+  }
+  function isDuplicatePair(a, b){
+    if(a.conflictOf === b.id || b.conflictOf === a.id) return false;
+    if(isTaggedAsKeptDuplicate(a.title) || isTaggedAsKeptDuplicate(b.title)) return false;
+    return titleSimilarity(a.title, b.title) >= DUPLICATE_TITLE_THRESHOLD;
+  }
+  function findDuplicateSermonPairs(){
+    const list = sermons.filter(s=>!s.deleted);
+    const pairs = [];
+    for(let i=0;i<list.length;i++){
+      for(let j=i+1;j<list.length;j++){
+        if(isDuplicatePair(list[i], list[j])) pairs.push([list[i], list[j]]);
+      }
+    }
+    return pairs;
+  }
+  function tagAsKeptDuplicate(s){
+    const base = stripDuplicateTag(s.title) || 'Untitled Sermon';
+    const label = new Date(s.updatedAt || Date.now()).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    s.title = `${base} (kept duplicate, ${label})`;
+    s.updatedAt = Date.now();
+  }
+
+  const duplicateSermonModal = document.getElementById('duplicateSermonModal');
+  function showDuplicateSermonModal(a, b){
+    return new Promise(resolve=>{
+      const fillCandidate = (prefix, s)=>{
+        document.getElementById(prefix+'Title').textContent = s.title || 'Untitled Sermon';
+        const meta = [];
+        if(s.series) meta.push(s.series);
+        if(s.date) meta.push(new Date(s.date+'T00:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}));
+        meta.push('Last edited ' + new Date(s.updatedAt||0).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}));
+        document.getElementById(prefix+'Meta').textContent = meta.join(' · ');
+      };
+      fillCandidate('dupA', a);
+      fillCandidate('dupB', b);
+      const keepABtn = document.getElementById('dupKeepABtn');
+      const keepBBtn = document.getElementById('dupKeepBBtn');
+      const keepBothBtn = document.getElementById('dupKeepBothBtn');
+      const cleanup = ()=>{
+        duplicateSermonModal.classList.remove('open');
+        keepABtn.removeEventListener('click', onKeepA);
+        keepBBtn.removeEventListener('click', onKeepB);
+        keepBothBtn.removeEventListener('click', onKeepBoth);
+        resolve();
+      };
+      const onKeepA = ()=>{ deleteSermon(b.id); renderLibrary(); showToast(`Kept "${stripDuplicateTag(a.title)}".`); cleanup(); };
+      const onKeepB = ()=>{ deleteSermon(a.id); renderLibrary(); showToast(`Kept "${stripDuplicateTag(b.title)}".`); cleanup(); };
+      const onKeepBoth = ()=>{
+        tagAsKeptDuplicate(a); tagAsKeptDuplicate(b);
+        persistSermons(); renderLibrary();
+        showToast('Keeping both -- renamed so they stay distinct.');
+        cleanup();
+      };
+      keepABtn.addEventListener('click', onKeepA);
+      keepBBtn.addEventListener('click', onKeepB);
+      keepBothBtn.addEventListener('click', onKeepBoth);
+      duplicateSermonModal.classList.add('open');
+    });
+  }
+  // Runs only on navigating into Library (see showView) -- never during Present/Practice, where
+  // a forced popup could land at the worst possible moment (see context.md's design principle on
+  // live-presentation risk). One pair at a time, sequentially: an earlier resolution in the same
+  // pass can delete or rename a sermon that a later pair also referenced, so each pair is
+  // re-validated against current state right before it's actually shown instead of trusting the
+  // snapshot findDuplicateSermonPairs() took at the start of the loop.
+  let duplicateCheckRunning = false;
+  async function checkForDuplicateSermons(){
+    if(duplicateCheckRunning) return;
+    duplicateCheckRunning = true;
+    try{
+      for(const [a, b] of findDuplicateSermonPairs()){
+        const stillA = sermons.find(x=>x.id===a.id && !x.deleted);
+        const stillB = sermons.find(x=>x.id===b.id && !x.deleted);
+        if(!stillA || !stillB) continue;
+        if(!isDuplicatePair(stillA, stillB)) continue;
+        await showDuplicateSermonModal(stillA, stillB);
+      }
+    } finally { duplicateCheckRunning = false; }
+  }
+
   // Snapshot a sermon's editable content (called right before it's opened for editing) so there's
   // always a safe rollback point if an editing session goes wrong. Keeps the last 5 per sermon.
   function pushHistorySnapshot(sermonId, s){
@@ -1683,7 +1862,7 @@
     document.getElementById('brandbar').style.display = (name==='present'||name==='practice') ? 'none' : 'flex';
     document.getElementById('brandbar').classList.toggle('editor-active', name==='editor');
     document.getElementById('bottomnav').style.display = (name==='present'||name==='practice') ? 'none' : 'flex';
-    if(name==='library') renderLibrary();
+    if(name==='library'){ renderLibrary(); checkForDuplicateSermons(); }
     if(name==='plan') renderPlan();
     if(name==='illustrations') renderIllustrations();
     if(name==='editor'){
@@ -4822,6 +5001,7 @@
 
   /* ============ INIT ============ */
   renderLibrary();
+  checkForDuplicateSermons();
   renderBackupStatus();
   refreshAccountState();
   scheduleSync();
