@@ -285,6 +285,7 @@
   .modal-sheet-header{ display:flex; justify-content:space-between; align-items:center; padding:16px 18px 10px; }
   .modal-sheet-header h2{ font-family:'Playfair Display',serif; font-size:19px; margin:0; color:var(--heading); }
   .modal-sheet .scroll{ padding:0 18px 18px; }
+  .filter-clear-row{ padding:0 18px 14px; flex-shrink:0; }
 
   /* Right-side drawer variant: used for Settings/Account instead of a bottom sheet, since
      those are less "quick action, dismiss" and more "a place you sit for a bit" -- kept as an
@@ -555,6 +556,7 @@
   .plan-day:hover{ box-shadow:0 2px 8px rgba(0,0,0,0.08); border-color:var(--sage); }
   .plan-day.outside{ opacity:0.35; }
   .plan-day.today .plan-daynum{ background:var(--gold); color:var(--ink); border-radius:50%; }
+  .plan-day.jump-flash{ box-shadow:inset 0 0 0 2px var(--gold); border-color:var(--gold); }
   .plan-daynum{
     font-size:11px; font-weight:700; color:var(--text); width:19px; height:19px;
     display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif;
@@ -565,7 +567,8 @@
   }
   .plan-more{ font-size:9px; color:var(--muted); padding:0 2px; }
   #planLegend{ display:flex; gap:10px; flex-wrap:wrap; padding:10px; }
-  .plan-legend-item{ display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); }
+  .plan-legend-item{ display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted); cursor:pointer; padding:2px 4px; border-radius:5px; transition:background .15s ease, color .15s ease; }
+  .plan-legend-item:hover{ background:var(--panel-2); color:var(--text); }
   .plan-legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   #toastHost{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999;
@@ -1375,6 +1378,7 @@
 <div class="modal-overlay drawer-left" id="libraryFiltersModal">
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Filters</h2><button class="btn icon" id="closeLibraryFiltersModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="filter-clear-row"><button class="btn" id="libFilterClearBtn" style="width:100%;">Clear All Filters</button></div>
     <div class="scroll">
       <div class="slicer-group">
         <div class="slicer-label">Sermon</div>
@@ -1392,7 +1396,6 @@
         <div class="slicer-label">Month</div>
         <div class="slicer-list" id="libFilterMonthList"></div>
       </div>
-      <button class="btn" id="libFilterClearBtn" style="width:100%;">Clear All Filters</button>
     </div>
   </div>
 </div>
@@ -1400,6 +1403,7 @@
 <div class="modal-overlay drawer-left" id="planFiltersModal">
   <div class="modal-sheet">
     <div class="modal-sheet-header"><h2>Filters</h2><button class="btn icon" id="closePlanFiltersModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="filter-clear-row"><button class="btn" id="planFilterClearBtn" style="width:100%;">Clear All Filters</button></div>
     <div class="scroll">
       <div class="slicer-group">
         <div class="slicer-label">Sermon</div>
@@ -1417,7 +1421,6 @@
         <div class="slicer-label">Month</div>
         <div class="slicer-list" id="planFilterMonthList"></div>
       </div>
-      <button class="btn" id="planFilterClearBtn" style="width:100%;">Clear All Filters</button>
     </div>
   </div>
 </div>
@@ -2273,12 +2276,52 @@
     const seriesSet = [...new Set(filtered.map(s=>s.series).filter(Boolean))];
     if(seriesSet.length){
       legend.innerHTML = seriesSet.map(sName =>
-        `<div class="plan-legend-item"><span class="plan-legend-dot" style="background:${colorForSeries(sName)}"></span>${escapeHtml(sName)}</div>`
+        `<div class="plan-legend-item" data-series="${escapeAttr(sName)}"><span class="plan-legend-dot" style="background:${colorForSeries(sName)}"></span>${escapeHtml(sName)}</div>`
       ).join('');
     } else {
       legend.innerHTML = '';
     }
   }
+
+  // Tapping a legend series jumps the calendar to that series' nearest entry (relative to
+  // whatever month is currently showing); tapping the same series again cycles forward
+  // chronologically through its remaining (filtered) entries, wrapping back to the first.
+  // The cursor is keyed by series name and persists across clicks/months/filter changes --
+  // if the cursor's date no longer exists in the current filtered set (deleted, or filtered
+  // out), it's simply treated as a fresh start (nearest-to-current-month) rather than erroring.
+  const planLegendCursor = {};
+  function nearestEntryIndex(entries, referenceDate){
+    let bestIdx = 0, bestDiff = Infinity;
+    entries.forEach((s,i)=>{
+      const diff = Math.abs(new Date(s.date+'T00:00:00').getTime() - referenceDate.getTime());
+      if(diff < bestDiff){ bestDiff = diff; bestIdx = i; }
+    });
+    return bestIdx;
+  }
+  function jumpToSeriesEntry(seriesName){
+    const entries = planFilteredSermons()
+      .filter(s => (s.series||'') === seriesName && !!s.date)
+      .sort((a,b)=> a.date.localeCompare(b.date));
+    if(!entries.length) return;
+    const lastDate = planLegendCursor[seriesName];
+    const lastIdx = lastDate ? entries.findIndex(s=>s.date === lastDate) : -1;
+    const idx = lastIdx === -1 ? nearestEntryIndex(entries, planMonth) : (lastIdx + 1) % entries.length;
+    const target = entries[idx];
+    planLegendCursor[seriesName] = target.date;
+    const d = new Date(target.date+'T00:00:00');
+    planMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    renderPlan();
+    const cell = document.querySelector(`.plan-day[data-date="${target.date}"]`);
+    if(cell){
+      cell.classList.add('jump-flash');
+      setTimeout(()=> cell.classList.remove('jump-flash'), 1600);
+    }
+  }
+  document.getElementById('planLegend').addEventListener('click', e=>{
+    const item = e.target.closest('.plan-legend-item');
+    if(!item) return;
+    jumpToSeriesEntry(item.dataset.series);
+  });
 
   function renderPlanFiltersTray(){
     const active = sermons.filter(s=>!s.deleted);
@@ -3078,21 +3121,41 @@
 
     const doc = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(sermon.title || 'Sermon')}</title>
     <style>
-      body{ font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; max-width:720px; margin:40px auto; padding:0 24px; line-height:1.5; }
-      h1{ font-size:28px; margin:0 0 4px; }
-      .m-meta{ font-family: Helvetica, Arial, sans-serif; font-size:13px; color:#666; margin:0 0 32px; text-transform:uppercase; letter-spacing:0.5px; }
-      h2{ font-family: Helvetica, Arial, sans-serif; font-size:13px; text-transform:uppercase; letter-spacing:1px; color:#886b3a; border-bottom:1px solid #ddd; padding-bottom:6px; margin:32px 0 12px; }
-      .m-item{ font-size:16px; margin:0 0 14px; }
+      /* Letter page, 1" margins on every side -- matches a standard Word document's default
+         page setup, rather than leaving each browser's own inconsistent print-margin default
+         in charge. */
+      @page{ size: letter; margin: 1in; }
+      *{ box-sizing:border-box; }
+      html{ background:#e8e8e8; }
+      body{
+        font-family: Georgia, 'Times New Roman', serif; color:#1a1a1a; font-size:12pt; line-height:1.5;
+        margin:0; background:#e8e8e8;
+      }
+      /* On-screen (the brief moment before the print dialog opens) this renders as an actual
+         page -- fixed to Letter width/height, its own 1" padding standing in for the @page
+         margin, drop shadow against the gray canvas -- instead of a full-bleed web layout.
+         Print discards all of that and lets @page's margin do the real work, since printing
+         a fixed-height box would either clip a long sermon or leave a mostly-blank last page. */
+      .page{ width:8.5in; min-height:11in; margin:24px auto; padding:1in; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,.2); }
+      @media print{
+        html, body{ background:#fff; }
+        .page{ width:auto; min-height:0; margin:0; padding:0; background:#fff; box-shadow:none; }
+      }
+      h1{ font-size:22pt; margin:0 0 4pt; font-weight:normal; }
+      .m-meta{ font-family: Helvetica, Arial, sans-serif; font-size:9pt; color:#666; margin:0 0 24pt; text-transform:uppercase; letter-spacing:0.5px; }
+      h2{ font-family: Helvetica, Arial, sans-serif; font-size:10pt; text-transform:uppercase; letter-spacing:1px; color:#886b3a; border-bottom:1px solid #ddd; padding-bottom:5pt; margin:22pt 0 10pt; break-after:avoid; }
+      .m-item{ font-size:12pt; margin:0 0 10pt; orphans:2; widows:2; }
       .m-quiet{ font-style:italic; color:#555; }
       .m-scripture{ border-left:3px solid #886b3a; padding-left:14px; color:#333; }
-      .m-illustration{ background:#f7f4ec; padding:12px 14px; border-radius:6px; }
-      .m-label{ display:block; font-family: Helvetica, Arial, sans-serif; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#886b3a; margin-bottom:4px; }
-      @media print{ body{ margin:0 auto; } }
+      .m-illustration{ background:#f7f4ec; padding:10pt 12pt; border-radius:6px; break-inside:avoid; }
+      .m-label{ display:block; font-family: Helvetica, Arial, sans-serif; font-size:8pt; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; color:#886b3a; margin-bottom:4pt; }
     </style></head>
     <body>
-      <h1>${escapeHtml(sermon.title || 'Untitled Sermon')}</h1>
-      ${metaLine ? `<p class="m-meta">${escapeHtml(metaLine)}</p>` : ''}
-      ${sectionsHtml}
+      <div class="page">
+        <h1>${escapeHtml(sermon.title || 'Untitled Sermon')}</h1>
+        ${metaLine ? `<p class="m-meta">${escapeHtml(metaLine)}</p>` : ''}
+        ${sectionsHtml}
+      </div>
     </body></html>`;
 
     const w = window.open('', '_blank');
