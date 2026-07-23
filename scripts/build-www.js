@@ -16,7 +16,7 @@ const FILES = [
   'shema-mark-color.png',
   'shema-mark-inverse.png',
 ];
-const DIRS = ['data', 'icons', 'vendor'];
+const DIRS = ['icons', 'vendor'];
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
@@ -24,8 +24,17 @@ fs.mkdirSync(out, { recursive: true });
 for (const f of FILES) {
   fs.copyFileSync(path.join(root, f), path.join(out, f));
 }
+let copiedDirs = 0;
 for (const d of DIRS) {
-  fs.cpSync(path.join(root, d), path.join(out, d), { recursive: true });
+  const src = path.join(root, d);
+  // Skip (don't crash) if a listed directory doesn't exist -- one missing/optional
+  // folder shouldn't abort the whole build and leave www/ half-copied.
+  if (!fs.existsSync(src)) {
+    console.warn(`Skipping ${d}/ -- not found, nothing to copy.`);
+    continue;
+  }
+  fs.cpSync(src, path.join(out, d), { recursive: true });
+  copiedDirs++;
 }
 
-console.log(`Copied ${FILES.length} files and ${DIRS.length} directories into www/`);
+console.log(`Copied ${FILES.length} files and ${copiedDirs} directories into www/`);
