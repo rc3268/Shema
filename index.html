@@ -418,7 +418,7 @@
   #editorMeta input{
     background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:9px; padding:10px 12px; font-size:15px;
   }
-  #titleInput{ font-family:'Playfair Display',serif; font-size:19px; font-weight:600; }
+  #titleInput{ font-family:'Playfair Display',serif; font-size:19px; font-weight:600; line-height:1.5; }
   .meta-row{ display:flex; gap:8px; }
   .meta-row input{ flex:1; min-width:0; font-size:13px; }
   #sectionsWrap{ padding:14px 14px 100px; }
@@ -1293,7 +1293,8 @@
         <div class="settings-row-label"><span>Restore from Backup</span><span class="settings-row-sub" id="settingsBackupStatusSub"></span></div>
         <span class="settings-row-chev">›</span>
       </div>
-      <div class="settings-row" id="settingsBibleVersionRow">
+      <!-- Hidden with the scripture lookup removal (#78); restore when the dedicated lookup tool ships (#79). -->
+      <div class="settings-row" id="settingsBibleVersionRow" style="display:none;">
         <div class="settings-row-label"><span>Bible Version</span><span class="settings-row-sub">Translation scripture lookups open in</span></div>
         <select id="bibleVersionSelect" class="settings-select" title="Preferred Bible translation for lookups">
           <option value="KJV">King James (KJV)</option>
@@ -2758,6 +2759,26 @@
   document.getElementById('closeSermonInfoModal').addEventListener('click', closeSermonInfoModal);
   document.getElementById('editorTitleDisplay').addEventListener('click', ()=> openSermonInfoModal('edit'));
 
+  // #77 -- On a native phone, when the on-screen keyboard appears or the device rotates, the
+  // WebView reflows the viewport but doesn't re-scroll the focused field, so it can end up hidden
+  // behind the keyboard. When the visual viewport resizes (keyboard show/rotate) or orientation
+  // changes, nudge whatever text field is focused back into view. Harmless on desktop/web.
+  (function(){
+    function scrollFocusedIntoView(){
+      const el = document.activeElement;
+      if(!el || !el.matches) return;
+      const isField = el.matches('input, textarea') || el.isContentEditable;
+      if(!isField) return;
+      // let the reflow settle before measuring/scrolling
+      setTimeout(()=>{
+        try { el.scrollIntoView({ block:'center', behavior:'smooth' }); }
+        catch(e){ try { el.scrollIntoView(); } catch(_){} }
+      }, 250);
+    }
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', scrollFocusedIntoView);
+    window.addEventListener('orientationchange', scrollFocusedIntoView);
+  })();
+
   function updateEditorTitleDisplay(){
     const s = getEditing();
     const el = document.getElementById('editorTitleDisplay');
@@ -2842,9 +2863,6 @@
       <button class="icon-sm pp-toggle${proIncluded(it) ? ' on' : ''}" data-act="pp-toggle" title="Include this item when exporting to ProPresenter">Slide</button>
       <div class="item-main">
         <div class="item-text" contenteditable="true" data-role="text" data-placeholder="Type here..."></div>
-        ${it.type === 'scripture' ? `<div class="item-scripture-actions">
-          <button class="icon-sm" data-act="lookup" title="Look up on Blue Letter Bible">Look up</button>
-        </div>` : ''}
       </div>
       <button class="icon-sm" data-act="del"><img class="mono-ic" src="icons/del.png" data-light="icons/del.png" data-dark="icons/del-dark.png" style="height:13px;width:13px;display:block;" alt=""></button>`;
     if(!isIllustration){
@@ -2883,24 +2901,10 @@
       }
     });
 
-    const lookupBtn = row.querySelector('[data-act="lookup"]');
-    if(lookupBtn){
-      lookupBtn.addEventListener('click', ()=>{
-        const plain = htmlToPlainText(editable.innerHTML);
-        SCRIPTURE_RE.lastIndex = 0;
-        const match = SCRIPTURE_RE.exec(plain);
-        const query = match ? match[0] : plain.slice(0, 60);
-        if(!query.trim()){ showToast('Type a reference or passage first.', {danger:true}); return; }
-        // Blue Letter Bible's search takes a `t=` translation code; appending the user's
-        // preferred version (Settings > Bible Version) opens the lookup straight into that
-        // translation instead of BLB's own default. KJV is the default and matches BLB's own,
-        // so it's a no-op change for anyone who never touches the setting.
-        const version = getBibleVersion();
-        let lookupUrl = 'https://www.blueletterbible.org/search/search.cfm?Criteria=' + encodeURIComponent(query);
-        if(version) lookupUrl += '&t=' + encodeURIComponent(version);
-        window.open(lookupUrl, '_blank');
-      });
-    }
+    // Scripture "Look up" button intentionally removed (#78): it drove a Blue Letter Bible search
+    // off whatever text sat in the scripture box, which isn't the right model. A proper, dedicated
+    // lookup tool is future work (#79); getBibleVersion() and the hidden Settings > Bible Version
+    // row are kept dormant for when it returns, rather than ripped out and rebuilt.
 
     row.querySelector('[data-act="del"]').addEventListener('click', ()=>{
       sec.items.splice(idx,1); renderSections(); scheduleAutosave();
