@@ -4915,8 +4915,15 @@
      Level Security, not from hiding this string. */
   const SUPABASE_URL = 'https://rzwuivjdyrunqnwlmijf.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_Z4kcLmxron4Xi0_OLKtWTA_bvf9aw4x';
+  // Native builds sign in through the PKCE flow so the OAuth / magic-link callback can be finished
+  // inside the app via a deep link (see the appUrlOpen handler in the account section). We turn
+  // detectSessionInUrl off there because the callback never lands in the WebView's own URL -- it
+  // arrives as a com.shema.app:// deep link we exchange by hand. Web keeps Supabase's defaults
+  // untouched, so the already-working browser sign-in is unaffected. (#75)
+  const __isNativeEarly = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const sb = (typeof window.supabase !== 'undefined')
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY,
+        __isNativeEarly ? { auth: { flowType: 'pkce', detectSessionInUrl: false } } : undefined)
     : null;
   // Diagnostic for the reported "sign-in doesn't survive a refresh" bug -- cheap, always-on, and
   // deliberately not gated behind a debug flag, since the whole problem with that report so far is
@@ -5124,8 +5131,47 @@
     renderBackupStatus();
   }
 
+  // Deep link the native OAuth / magic-link callback returns through. Must match the iOS
+  // CFBundleURLTypes scheme, the Android intent-filter scheme, and be added to Supabase's
+  // Auth > URL Configuration > Redirect URLs allow-list. (#75)
+  const AUTH_REDIRECT_NATIVE = 'com.shema.app://auth-callback';
+  function openAuthUrl(url){
+    // In-app browser closes cleanly once the redirect fires; fall back to the system browser.
+    const B = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
+    if(B && B.open){ B.open({ url }); } else { window.open(url, '_system'); }
+  }
+  // Native only: catch the com.shema.app:// callback, pull the PKCE code out of it, and complete
+  // the session inside the app -- this is the piece that was missing, which is why sign-in used to
+  // land in Safari and never come back. Harmless on web (no Capacitor App plugin there).
+  if(isNativeApp && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+    window.Capacitor.Plugins.App.addListener('appUrlOpen', async (event)=>{
+      const url = event && event.url;
+      if(!url || url.indexOf('auth-callback') === -1) return;
+      try{
+        const q = url.split('?')[1] || '';
+        const h = url.split('#')[1] || '';
+        const params = new URLSearchParams(q || h);
+        const code = params.get('code');
+        if(code){ await sb.auth.exchangeCodeForSession(code); }
+      }catch(e){ console.error('[auth] deep-link exchange failed', e); showToast("Sign-in didn't finish. Please try again.", {danger:true}); }
+      try{ const B = window.Capacitor.Plugins.Browser; if(B && B.close) B.close(); }catch(_){}
+      try{ refreshAccountState(); decideWebAccess(); }catch(_){}
+    });
+  }
+
   document.getElementById('accountGoogleBtn').addEventListener('click', async ()=>{
     if(!sb) return;
+    if(isNativeApp){
+      // Don't let Supabase redirect the WebView. Get the auth URL, open it in the system browser,
+      // and finish the sign-in when the deep link fires (appUrlOpen handler above). (#75)
+      const { data, error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: AUTH_REDIRECT_NATIVE, skipBrowserRedirect: true }
+      });
+      if(error || !data || !data.url){ showToast("Couldn't start Google sign-in.", {danger:true}); return; }
+      openAuthUrl(data.url);
+      return;
+    }
     await sb.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin + window.location.pathname }
@@ -5140,7 +5186,7 @@
     statusEl.style.display = 'block';
     statusEl.textContent = 'Sending...';
     const { error } = await sb.auth.signInWithOtp({
-      email, options: { emailRedirectTo: window.location.origin + window.location.pathname }
+      email, options: { emailRedirectTo: isNativeApp ? AUTH_REDIRECT_NATIVE : (window.location.origin + window.location.pathname) }
     });
     statusEl.textContent = error
       ? "Couldn't send that -- check the address and try again."
