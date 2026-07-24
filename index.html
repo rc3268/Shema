@@ -1898,6 +1898,12 @@
     return s;
   }
   function normalizeIllustration(ill){
+    // Tags must be an array -- the Illustrations list and search call .map/.some/.join on it, so a
+    // record whose tags arrived as a comma-string (an older backup, or a hand-edited/imported JSON
+    // file) would otherwise crash the whole Illustrations view. Coerce it with the same comma-split
+    // the editor itself uses on save; any other non-array shape becomes an empty list.
+    if(typeof ill.tags === 'string') ill.tags = ill.tags.split(',').map(t=>t.trim()).filter(Boolean);
+    else if(!Array.isArray(ill.tags)) ill.tags = [];
     return migrateToCurrent('illustration', ill);
   }
   sermons.forEach(normalizeSermon);
