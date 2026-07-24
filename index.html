@@ -418,7 +418,7 @@
   #editorMeta input{
     background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:9px; padding:10px 12px; font-size:15px;
   }
-  #titleInput{ font-family:'Playfair Display',serif; font-size:19px; font-weight:600; }
+  #titleInput{ font-family:'Playfair Display',serif; font-size:19px; font-weight:600; line-height:1.5; }
   .meta-row{ display:flex; gap:8px; }
   .meta-row input{ flex:1; min-width:0; font-size:13px; }
   #sectionsWrap{ padding:14px 14px 100px; }
@@ -1293,7 +1293,8 @@
         <div class="settings-row-label"><span>Restore from Backup</span><span class="settings-row-sub" id="settingsBackupStatusSub"></span></div>
         <span class="settings-row-chev">›</span>
       </div>
-      <div class="settings-row" id="settingsBibleVersionRow">
+      <!-- Hidden with the scripture lookup removal (#78); restore when the dedicated lookup tool ships (#79). -->
+      <div class="settings-row" id="settingsBibleVersionRow" style="display:none;">
         <div class="settings-row-label"><span>Bible Version</span><span class="settings-row-sub">Translation scripture lookups open in</span></div>
         <select id="bibleVersionSelect" class="settings-select" title="Preferred Bible translation for lookups">
           <option value="KJV">King James (KJV)</option>
@@ -1897,6 +1898,12 @@
     return s;
   }
   function normalizeIllustration(ill){
+    // Tags must be an array -- the Illustrations list and search call .map/.some/.join on it, so a
+    // record whose tags arrived as a comma-string (an older backup, or a hand-edited/imported JSON
+    // file) would otherwise crash the whole Illustrations view. Coerce it with the same comma-split
+    // the editor itself uses on save; any other non-array shape becomes an empty list.
+    if(typeof ill.tags === 'string') ill.tags = ill.tags.split(',').map(t=>t.trim()).filter(Boolean);
+    else if(!Array.isArray(ill.tags)) ill.tags = [];
     return migrateToCurrent('illustration', ill);
   }
   sermons.forEach(normalizeSermon);
@@ -2758,6 +2765,26 @@
   document.getElementById('closeSermonInfoModal').addEventListener('click', closeSermonInfoModal);
   document.getElementById('editorTitleDisplay').addEventListener('click', ()=> openSermonInfoModal('edit'));
 
+  // #77 -- On a native phone, when the on-screen keyboard appears or the device rotates, the
+  // WebView reflows the viewport but doesn't re-scroll the focused field, so it can end up hidden
+  // behind the keyboard. When the visual viewport resizes (keyboard show/rotate) or orientation
+  // changes, nudge whatever text field is focused back into view. Harmless on desktop/web.
+  (function(){
+    function scrollFocusedIntoView(){
+      const el = document.activeElement;
+      if(!el || !el.matches) return;
+      const isField = el.matches('input, textarea') || el.isContentEditable;
+      if(!isField) return;
+      // let the reflow settle before measuring/scrolling
+      setTimeout(()=>{
+        try { el.scrollIntoView({ block:'center', behavior:'smooth' }); }
+        catch(e){ try { el.scrollIntoView(); } catch(_){} }
+      }, 250);
+    }
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', scrollFocusedIntoView);
+    window.addEventListener('orientationchange', scrollFocusedIntoView);
+  })();
+
   function updateEditorTitleDisplay(){
     const s = getEditing();
     const el = document.getElementById('editorTitleDisplay');
@@ -2842,9 +2869,6 @@
       <button class="icon-sm pp-toggle${proIncluded(it) ? ' on' : ''}" data-act="pp-toggle" title="Include this item when exporting to ProPresenter">Slide</button>
       <div class="item-main">
         <div class="item-text" contenteditable="true" data-role="text" data-placeholder="Type here..."></div>
-        ${it.type === 'scripture' ? `<div class="item-scripture-actions">
-          <button class="icon-sm" data-act="lookup" title="Look up on Blue Letter Bible">Look up</button>
-        </div>` : ''}
       </div>
       <button class="icon-sm" data-act="del"><img class="mono-ic" src="icons/del.png" data-light="icons/del.png" data-dark="icons/del-dark.png" style="height:13px;width:13px;display:block;" alt=""></button>`;
     if(!isIllustration){
@@ -2883,24 +2907,10 @@
       }
     });
 
-    const lookupBtn = row.querySelector('[data-act="lookup"]');
-    if(lookupBtn){
-      lookupBtn.addEventListener('click', ()=>{
-        const plain = htmlToPlainText(editable.innerHTML);
-        SCRIPTURE_RE.lastIndex = 0;
-        const match = SCRIPTURE_RE.exec(plain);
-        const query = match ? match[0] : plain.slice(0, 60);
-        if(!query.trim()){ showToast('Type a reference or passage first.', {danger:true}); return; }
-        // Blue Letter Bible's search takes a `t=` translation code; appending the user's
-        // preferred version (Settings > Bible Version) opens the lookup straight into that
-        // translation instead of BLB's own default. KJV is the default and matches BLB's own,
-        // so it's a no-op change for anyone who never touches the setting.
-        const version = getBibleVersion();
-        let lookupUrl = 'https://www.blueletterbible.org/search/search.cfm?Criteria=' + encodeURIComponent(query);
-        if(version) lookupUrl += '&t=' + encodeURIComponent(version);
-        window.open(lookupUrl, '_blank');
-      });
-    }
+    // Scripture "Look up" button intentionally removed (#78): it drove a Blue Letter Bible search
+    // off whatever text sat in the scripture box, which isn't the right model. A proper, dedicated
+    // lookup tool is future work (#79); getBibleVersion() and the hidden Settings > Bible Version
+    // row are kept dormant for when it returns, rather than ripped out and rebuilt.
 
     row.querySelector('[data-act="del"]').addEventListener('click', ()=>{
       sec.items.splice(idx,1); renderSections(); scheduleAutosave();
@@ -4911,8 +4921,15 @@
      Level Security, not from hiding this string. */
   const SUPABASE_URL = 'https://rzwuivjdyrunqnwlmijf.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_Z4kcLmxron4Xi0_OLKtWTA_bvf9aw4x';
+  // Native builds sign in through the PKCE flow so the OAuth / magic-link callback can be finished
+  // inside the app via a deep link (see the appUrlOpen handler in the account section). We turn
+  // detectSessionInUrl off there because the callback never lands in the WebView's own URL -- it
+  // arrives as a com.shema.app:// deep link we exchange by hand. Web keeps Supabase's defaults
+  // untouched, so the already-working browser sign-in is unaffected. (#75)
+  const __isNativeEarly = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const sb = (typeof window.supabase !== 'undefined')
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY,
+        __isNativeEarly ? { auth: { flowType: 'pkce', detectSessionInUrl: false } } : undefined)
     : null;
   // Diagnostic for the reported "sign-in doesn't survive a refresh" bug -- cheap, always-on, and
   // deliberately not gated behind a debug flag, since the whole problem with that report so far is
@@ -5120,8 +5137,47 @@
     renderBackupStatus();
   }
 
+  // Deep link the native OAuth / magic-link callback returns through. Must match the iOS
+  // CFBundleURLTypes scheme, the Android intent-filter scheme, and be added to Supabase's
+  // Auth > URL Configuration > Redirect URLs allow-list. (#75)
+  const AUTH_REDIRECT_NATIVE = 'com.shema.app://auth-callback';
+  function openAuthUrl(url){
+    // In-app browser closes cleanly once the redirect fires; fall back to the system browser.
+    const B = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
+    if(B && B.open){ B.open({ url }); } else { window.open(url, '_system'); }
+  }
+  // Native only: catch the com.shema.app:// callback, pull the PKCE code out of it, and complete
+  // the session inside the app -- this is the piece that was missing, which is why sign-in used to
+  // land in Safari and never come back. Harmless on web (no Capacitor App plugin there).
+  if(isNativeApp && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+    window.Capacitor.Plugins.App.addListener('appUrlOpen', async (event)=>{
+      const url = event && event.url;
+      if(!url || url.indexOf('auth-callback') === -1) return;
+      try{
+        const q = url.split('?')[1] || '';
+        const h = url.split('#')[1] || '';
+        const params = new URLSearchParams(q || h);
+        const code = params.get('code');
+        if(code){ await sb.auth.exchangeCodeForSession(code); }
+      }catch(e){ console.error('[auth] deep-link exchange failed', e); showToast("Sign-in didn't finish. Please try again.", {danger:true}); }
+      try{ const B = window.Capacitor.Plugins.Browser; if(B && B.close) B.close(); }catch(_){}
+      try{ refreshAccountState(); decideWebAccess(); }catch(_){}
+    });
+  }
+
   document.getElementById('accountGoogleBtn').addEventListener('click', async ()=>{
     if(!sb) return;
+    if(isNativeApp){
+      // Don't let Supabase redirect the WebView. Get the auth URL, open it in the system browser,
+      // and finish the sign-in when the deep link fires (appUrlOpen handler above). (#75)
+      const { data, error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: AUTH_REDIRECT_NATIVE, skipBrowserRedirect: true }
+      });
+      if(error || !data || !data.url){ showToast("Couldn't start Google sign-in.", {danger:true}); return; }
+      openAuthUrl(data.url);
+      return;
+    }
     await sb.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin + window.location.pathname }
@@ -5136,7 +5192,7 @@
     statusEl.style.display = 'block';
     statusEl.textContent = 'Sending...';
     const { error } = await sb.auth.signInWithOtp({
-      email, options: { emailRedirectTo: window.location.origin + window.location.pathname }
+      email, options: { emailRedirectTo: isNativeApp ? AUTH_REDIRECT_NATIVE : (window.location.origin + window.location.pathname) }
     });
     statusEl.textContent = error
       ? "Couldn't send that -- check the address and try again."

@@ -408,7 +408,12 @@
       "id": "smpl-ill-68",
       "schemaVersion": 1,
       "title": "The Bridge Keeper's Sacrifice",
-      "tags": "sacrifice, love, gospel, substitution",
+      "tags": [
+        "sacrifice",
+        "love",
+        "gospel",
+        "substitution"
+      ],
       "body": "A man tended a great railway drawbridge over a river. One afternoon he brought his young son to work. When the signal came that a passenger train was approaching, he moved to lower the bridge — and saw, to his horror, that his son had climbed down into the gears below. He faced an impossible choice: leave the bridge up and save his boy, or lower it and save the hundreds aboard the train. With a cry no one heard over the roar, he lowered the bridge. The passengers rode past, reading their papers, never knowing the price of their safe crossing. It is a faint and imperfect echo of a Father who gave His Son so that we, unaware and unthanking, might pass safely home.",
       "updatedAt": 1752645600000
     },
@@ -416,7 +421,12 @@
       "id": "smpl-ill-69",
       "schemaVersion": 1,
       "title": "A Compass in the Fog",
-      "tags": "guidance, feelings, truth, faith",
+      "tags": [
+        "guidance",
+        "feelings",
+        "truth",
+        "faith"
+      ],
       "body": "A young sailor once boasted that he never needed instruments — he could feel which way was north. One foggy night his feelings told him the harbor lay to the left; his compass insisted it lay to the right. He trusted his gut and ran aground within the hour. Feelings are real, but they are not reliable navigators. The Word of God is our compass: it does not bend to the fog, and it does not care how confident we feel about the wrong direction.",
       "updatedAt": 1752649200000
     },
@@ -424,7 +434,12 @@
       "id": "smpl-ill-70",
       "schemaVersion": 1,
       "title": "The Cracked Water Pot",
-      "tags": "grace, weakness, usefulness, humility",
+      "tags": [
+        "grace",
+        "weakness",
+        "usefulness",
+        "humility"
+      ],
       "body": "A servant carried water each day on a pole with two pots. One was perfect; the other had a crack and arrived half-empty. The cracked pot was ashamed. But the master said, “Did you notice the flowers? I planted seeds on your side of the path, and your leak has watered them every single day. Without your crack, there would be no beauty here.” God is not looking for flawless vessels. He is remarkably fond of using the cracked ones, and watering something lovely along the way.",
       "updatedAt": 1752652800000
     }

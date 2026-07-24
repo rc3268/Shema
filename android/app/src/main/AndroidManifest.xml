@@ -22,6 +22,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Deep link for the OAuth / magic-link sign-in callback (#75). Must match the
+                 com.shema.app:// scheme used in the app's auth redirect and the iOS URL type. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.shema.app" />
+            </intent-filter>
+
         </activity>
 
         <provider
