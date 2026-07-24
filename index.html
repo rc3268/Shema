@@ -5167,12 +5167,18 @@
 
   document.getElementById('accountGoogleBtn').addEventListener('click', async ()=>{
     if(!sb) return;
+    // Google silently reuses whatever session already exists in the browser context (the in-app
+    // browser shares Safari's own cookies on iOS), so without this it can skip straight past
+    // account selection to whichever Google account the device happens to be signed into --
+    // easy to hit if you have a personal Gmail session sitting in Safari. `prompt=select_account`
+    // is forwarded straight to Google's own OAuth endpoint and forces the picker every time.
+    const FORCE_ACCOUNT_PICKER = { queryParams: { prompt: 'select_account' } };
     if(isNativeApp){
       // Don't let Supabase redirect the WebView. Get the auth URL, open it in the system browser,
       // and finish the sign-in when the deep link fires (appUrlOpen handler above). (#75)
       const { data, error } = await sb.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: AUTH_REDIRECT_NATIVE, skipBrowserRedirect: true }
+        options: { redirectTo: AUTH_REDIRECT_NATIVE, skipBrowserRedirect: true, ...FORCE_ACCOUNT_PICKER }
       });
       if(error || !data || !data.url){ showToast("Couldn't start Google sign-in.", {danger:true}); return; }
       openAuthUrl(data.url);
@@ -5180,7 +5186,7 @@
     }
     await sb.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin + window.location.pathname }
+      options: { redirectTo: window.location.origin + window.location.pathname, ...FORCE_ACCOUNT_PICKER }
     });
   });
 
