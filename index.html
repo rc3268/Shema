@@ -1603,7 +1603,17 @@
 
   // Only these inline tags are ever allowed to survive in stored rich text.
   const RICH_TEXT_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','U','MARK','BR','UL','OL','LI','BLOCKQUOTE']);
-  const RICH_TEXT_DROP_TAGS = new Set(['SCRIPT','STYLE']);
+  // Dropped WHOLE (tag and its contents both gone) rather than unwrapped-and-kept like an
+  // ordinary disallowed DIV/SPAN -- these are page chrome (buttons, form controls, icons), never
+  // sermon prose, so their text content ("Tools", "Copy", etc.) isn't worth rescuing the way a
+  // stray wrapper div's real paragraph text is. Pasting a Bible-lookup site's verse list is the
+  // common case: each verse row carries its own "Tools" button and a copy-icon <svg> alongside
+  // the actual verse text, and naively unwrapping those leaves the button's label sitting in the
+  // sermon as if it were part of the passage.
+  const RICH_TEXT_DROP_TAGS = new Set(['SCRIPT','STYLE','BUTTON','INPUT','SELECT','TEXTAREA','SVG','NAV','NOSCRIPT']);
+  function isChromeElement(el){
+    return RICH_TEXT_DROP_TAGS.has(el.tagName) || (el.getAttribute && el.getAttribute('role') === 'button');
+  }
 
   // A ProPresenter slide-break marker (see #slideBreakBtn) -- an atomic, non-editable chip, not
   // user-authored formatting, so it deliberately bypasses the inline-tag allowlist below rather
@@ -1636,7 +1646,7 @@
             child = originalNext;
             continue;
           }
-          if(RICH_TEXT_DROP_TAGS.has(tag)){
+          if(isChromeElement(child)){
             node.removeChild(child);
           } else if(!RICH_TEXT_ALLOWED_TAGS.has(tag)){
             // Unwrap disallowed elements (e.g. stray <div>/<span> from paste) but keep their content,
@@ -3010,6 +3020,21 @@
         scheduleAutosave();
       }
     });
+    // Sanitize BEFORE insertion, not just on the next 'input' -- copying a verse straight off a
+    // Bible-lookup website (Blue Letter Bible, Bible Gateway, etc.) carries that page's own
+    // per-verse "Tools" buttons and copy icons along in the clipboard HTML. Left to the default
+    // paste + sanitize-on-input flow, that raw chrome sits visibly in the editor (as actual live
+    // buttons) until the item happens to re-render from its now-cleaned stored text; sanitizing up
+    // front means it's never there to see in the first place. Falls back to plain text (as literal
+    // text, not HTML) when the clipboard has no HTML representation at all.
+    editable.addEventListener('paste', (e)=>{
+      e.preventDefault();
+      const html = e.clipboardData.getData('text/html');
+      const insertHtml = html ? sanitizeRichText(html) : escapeHtml(e.clipboardData.getData('text/plain')).replace(/\n/g, '<br>');
+      document.execCommand('insertHTML', false, insertHtml);
+      it.text = sanitizeRichText(editable.innerHTML);
+      scheduleAutosave();
+    });
 
     // Scripture "Look up" button intentionally removed (#78): it drove a Blue Letter Bible search
     // off whatever text sat in the scripture box, which isn't the right model. A proper, dedicated
@@ -3787,7 +3812,10 @@
           if(child.classList && child.classList.contains('import-break')){
             child = originalNext; continue;
           }
-          if(tag === 'SCRIPT' || tag === 'STYLE'){
+          if(isChromeElement(child)){
+            // Dropped whole, not unwrapped -- page chrome from a pasted webpage (a "Tools"
+            // button, a copy icon) alongside real verse/paragraph text, same reasoning as
+            // sanitizeRichText's own RICH_TEXT_DROP_TAGS.
             node.removeChild(child);
           } else if(!IMPORT_ALLOWED_TAGS.has(tag)){
             const wasBlock = (tag === 'DIV' || tag === 'P');
