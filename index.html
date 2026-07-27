@@ -561,7 +561,7 @@
   #richToolbar button:hover{ border-color:var(--sage); }
   #richToolbar button:active{ transform:scale(0.93); }
   #richToolbar button.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); box-shadow:inset 0 1px 2px rgba(0,0,0,0.06); }
-  #highlightBtn mark{ background:var(--gold-soft); color:var(--ink); border-radius:3px; padding:0 3px; font-weight:600; }
+  #highlightBtn mark, #importHighlightBtn mark{ background:var(--gold-soft); color:var(--ink); border-radius:3px; padding:0 3px; font-weight:600; }
   #richToolbar .toolbar-divider{ width:26px; height:1px; background:var(--line); margin:2px 0; flex-shrink:0; }
   .vtool-plus{ background:var(--gold); color:var(--ink); border:none; font-size:18px; font-weight:700; box-shadow:0 1px 2px rgba(0,0,0,0.12); }
   .vtool-plus:hover{ border-color:transparent; }
@@ -1234,6 +1234,7 @@
         <button data-cmd="bold" title="Bold"><strong>B</strong></button>
         <button data-cmd="italic" title="Italic"><em>I</em></button>
         <button data-cmd="underline" title="Underline"><u>U</u></button>
+        <button id="importHighlightBtn" title="Highlight"><mark>H</mark></button>
         <span class="toolbar-divider-h"></span>
         <button data-cmd="insertUnorderedList" title="Bullet list"><img class="mono-ic" src="icons/bullet-list.png" data-light="icons/bullet-list.png" data-dark="icons/bullet-list-dark.png" style="height:15px;width:15px;display:block;" alt=""></button>
         <button data-cmd="insertOrderedList" title="Numbered list"><img class="mono-ic" src="icons/numbered-list.png" data-light="icons/numbered-list.png" data-dark="icons/numbered-list-dark.png" style="height:15px;width:15px;display:block;" alt=""></button>
@@ -3970,6 +3971,8 @@
       try{ active = document.queryCommandState(cmd); } catch(e){}
       btn.classList.toggle('active', active);
     });
+    const importHlBtn = document.getElementById('importHighlightBtn');
+    if(importHlBtn) importHlBtn.classList.toggle('active', !!closestMark(currentSelectionNode()));
   }
   document.getElementById('importToolbar').querySelectorAll('button[data-cmd]').forEach(btn=>{
     btn.addEventListener('pointerdown', (e)=>{
@@ -3978,6 +3981,33 @@
       document.execCommand(btn.dataset.cmd);
       updateImportToolbarState();
     });
+  });
+  // Same manual Range-API approach as the Prepare editor's own #highlightBtn (see its comment
+  // above) -- highlight isn't a real execCommand, and IMPORT_ALLOWED_TAGS already keeps <mark>
+  // through the paste/upload sanitizer, so a highlighted quote survives into whatever block it
+  // lands in once "Import" splits the staged content into sections.
+  document.getElementById('importHighlightBtn').addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    importStage.focus();
+    const sel = window.getSelection();
+    if(!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const existingMark = closestMark(currentSelectionNode());
+    if(existingMark && importStage.contains(existingMark)){
+      const parent = existingMark.parentNode;
+      while(existingMark.firstChild) parent.insertBefore(existingMark.firstChild, existingMark);
+      parent.removeChild(existingMark);
+    } else if(!range.collapsed){
+      const mark = document.createElement('mark');
+      try{
+        range.surroundContents(mark);
+      } catch(err){
+        const frag = range.extractContents();
+        mark.appendChild(frag);
+        range.insertNode(mark);
+      }
+    }
+    updateImportToolbarState();
   });
   importStage.addEventListener('keyup', updateImportToolbarState);
   importStage.addEventListener('mouseup', updateImportToolbarState);
