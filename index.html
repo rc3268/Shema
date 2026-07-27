@@ -3286,10 +3286,13 @@
   }
 
   // Wrap scripture references mentioned inline in prose (a "see Romans 8:28" aside inside a
-  // block/quiet item) in blue+bold -- color table index 5, kept separate from index 2 (gold),
-  // which is reserved for a scripture *item's* own whole-body styling below. Only ever called for
-  // prose item types; a scripture/illustration item's entire body is already colored as a unit,
-  // and re-highlighting a reference inside it would fight that with a color the item didn't ask for.
+  // block/quiet item) in blue+bold -- color table index 2. Deliberately the only formatting this
+  // export applies: ProPresenter's own RTF/Word import only keeps formatting that varies WITHIN a
+  // text box (one highlighted word among plain text, like this) and silently discards formatting
+  // that's uniform across an entire slide, falling back to that slide's theme instead -- an
+  // earlier version of this export tried to color/italicize a whole scripture or illustration
+  // body as a unit, and ProPresenter dropped all of it on import. Matching Present's look is a
+  // ProPresenter Theme set up once inside ProPresenter itself, not something this export can push.
   function rtfWithScriptureHighlight(text){
     let out = '';
     let lastIndex = 0;
@@ -3297,7 +3300,7 @@
     SCRIPTURE_RE.lastIndex = 0;
     while((match = SCRIPTURE_RE.exec(text)) !== null){
       out += rtfEscape(text.slice(lastIndex, match.index));
-      out += '{\\cf5\\b ' + rtfEscape(match[0]) + '\\b0\\cf1}';
+      out += '{\\cf2\\b ' + rtfEscape(match[0]) + '\\b0\\cf1}';
       lastIndex = match.index + match[0].length;
     }
     out += rtfEscape(text.slice(lastIndex));
@@ -3313,32 +3316,16 @@
     return typeof it.proInclude === 'boolean' ? it.proInclude : it.type === 'scripture';
   }
 
-  // Mirrors Present's own per-type look (.line.scripture / .line.illustration / .line.quiet) so a
-  // slide pasted into ProPresenter reads as a continuation of what's already on the iPad, not a
-  // plain black-Calibri afterthought: gold italic serif for scripture, orange italic serif for
-  // illustrations, muted italic for quiet asides, plain for everything else. Font table: f0
-  // Calibri (matches the app's sans body text), f1 Georgia (matches Playfair Display's serif).
-  // Color table: 1 ink, 2 gold, 3 orange, 4 muted sage, 5 blue (inline citation highlight only).
-  function rtfStyleForType(bodyRtf, type){
-    if(type === 'scripture') return '{\\i\\f1\\cf2 ' + bodyRtf + '\\cf1\\i0\\f0}';
-    if(type === 'illustration') return '{\\i\\f1\\cf3 ' + bodyRtf + '\\cf1\\i0\\f0}';
-    if(type === 'quiet') return '{\\i\\cf4 ' + bodyRtf + '\\cf1\\i0}';
-    return bodyRtf;
-  }
-
   // One item can yield multiple RTF paragraphs (= multiple ProPresenter slides) if it has one or
-  // more slide-break markers in it -- see splitItemHtmlOnBreaks. Each resulting chunk keeps the
-  // same per-type styling as the item it came from.
+  // more slide-break markers in it -- see splitItemHtmlOnBreaks.
   function rtfParagraphsForItem(it){
-    const isProse = it.type !== 'scripture' && it.type !== 'illustration';
     // Normalize once, the same way every other consumer of an item's text does, before handing
     // guaranteed-real HTML to splitItemHtmlOnBreaks -- it.text can still legitimately be
     // un-migrated legacy plain text at rest.
     const html = sanitizeRichText(seedRichHtml(it.text));
     return splitItemHtmlOnBreaks(html).map(chunkHtml=>{
       const plain = richHtmlToPlainText(chunkHtml) || '';
-      const body = isProse ? rtfWithScriptureHighlight(plain) : rtfEscape(plain);
-      return rtfStyleForType(body, it.type);
+      return rtfWithScriptureHighlight(plain);
     });
   }
 
@@ -3357,8 +3344,9 @@
       return;
     }
 
-    let rtf = '{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Calibri;}{\\f1 Georgia;}}';
-    rtf += '{\\colortbl;\\red26\\green26\\blue26;\\red199\\green166\\blue106;\\red196\\green122\\blue58;\\red92\\green111\\blue98;\\red30\\green80\\blue190;}';
+    // Color table: 1 ink (default), 2 blue (inline scripture-citation highlight only).
+    let rtf = '{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Calibri;}}';
+    rtf += '{\\colortbl;\\red26\\green26\\blue26;\\red30\\green80\\blue190;}';
     rtf += '\\f0\\fs32\\cf1\n';
 
     qualifying.forEach(it=>{
