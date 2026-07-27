@@ -445,7 +445,10 @@
   .drag-handle:active{ cursor:grabbing; color:var(--gold-dim); }
   .item-row .icon-sm{ background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer; flex-shrink:0; }
   /* Per-item ProPresenter export flag -- a plain toggle pill, matching the same on/off gold
-     treatment already used for the rich-text toolbar's own active-state buttons. */
+     treatment already used for the rich-text toolbar's own active-state buttons. Labeled "Screen"
+     rather than "Slide": every item already looks like a slide once you hit Present, so that word
+     didn't distinguish anything -- "Screen" names the actual choice (does this go up on the venue
+     screen via ProPresenter, or stay just for the pastor on the iPad). */
   .pp-toggle{
     border:1px solid var(--line); border-radius:6px; padding:0 7px; height:24px; align-self:flex-start;
     margin-top:2px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;
@@ -521,6 +524,21 @@
   }
   .import-break .brk-del{ cursor:pointer; font-weight:900; opacity:0.6; }
   .import-break .brk-del:hover{ opacity:1; }
+  /* Slide-break marker: an atomic, non-editable chip a pastor drops inside a scripture (or any)
+     item's own text to mark where the ProPresenter export should cut to a new slide, without
+     splitting Prepare/Present's view of that passage into separate items -- Present and Practice
+     keep showing it as one continuous flowing block (see the display:none override below), only
+     the exported .rtf actually breaks there. Visually it borrows .import-break's look so the two
+     "this is a structural marker, not sermon text" chips read the same way. */
+  .pp-break{
+    display:flex; align-items:center; justify-content:center; gap:8px; margin:8px 0; padding:5px 10px;
+    border-top:1px dashed var(--gold-dim); border-bottom:1px dashed var(--gold-dim); background:var(--gold-soft-bg);
+    color:var(--gold-dim); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px;
+    border-radius:6px; user-select:none;
+  }
+  .pp-break .brk-del{ cursor:pointer; font-weight:900; opacity:0.6; }
+  .pp-break .brk-del:hover{ opacity:1; }
+  #sectionContent .pp-break, .practice-section-content .pp-break{ display:none; }
   /* Persistent right-hand sidebar, collapsed to 0 width by default. Toggled from the brandbar
      icon; #editorScrollWrap is its flex sibling so it narrows automatically as this grows. */
   #richToolbar{
@@ -983,6 +1001,7 @@
         <button data-cmd="italic" title="Italic"><em>I</em></button>
         <button data-cmd="underline" title="Underline"><u>U</u></button>
         <button id="highlightBtn" title="Highlight"><mark>H</mark></button>
+        <button id="slideBreakBtn" title="Insert a slide break here — splits this passage across separate ProPresenter slides without changing how it reads in Present">✂</button>
         <span class="toolbar-divider"></span>
         <button data-cmd="insertUnorderedList" title="Toggle bullet list"><img class="mono-ic" src="icons/bullet-list.png" data-light="icons/bullet-list.png" data-dark="icons/bullet-list-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
         <button data-cmd="insertOrderedList" title="Toggle numbered list"><img class="mono-ic" src="icons/numbered-list.png" data-light="icons/numbered-list.png" data-dark="icons/numbered-list-dark.png" style="height:16px;width:16px;display:block;" alt=""></button>
@@ -1585,6 +1604,25 @@
   // Only these inline tags are ever allowed to survive in stored rich text.
   const RICH_TEXT_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','U','MARK','BR','UL','OL','LI','BLOCKQUOTE']);
   const RICH_TEXT_DROP_TAGS = new Set(['SCRIPT','STYLE']);
+
+  // A ProPresenter slide-break marker (see #slideBreakBtn) -- an atomic, non-editable chip, not
+  // user-authored formatting, so it deliberately bypasses the inline-tag allowlist below rather
+  // than getting unwrapped like any other stray <div>. Mirrors how the Import stage's own
+  // .import-break marker is trusted verbatim in its sanitizer.
+  function makeSlideBreakMarkerHtml(id){
+    return `<div class="pp-break" contenteditable="false" data-brk="${id}">SLIDE BREAK<span class="brk-del" data-brk-del="${id}">✕</span></div>`;
+  }
+  // A marker inserted mid-selection can land nested inside whatever inline tag the cursor was in
+  // (e.g. inside a <b> run) -- this walks it back out to a direct child of `container` so it reads
+  // as a clean top-level break rather than an oddly-split bold span.
+  function normalizeBreakPlacement(marker, container){
+    if(marker.parentNode === container) return;
+    let anchor = marker;
+    while(anchor.parentNode && anchor.parentNode !== container) anchor = anchor.parentNode;
+    if(!anchor.parentNode) return;
+    marker.remove();
+    container.insertBefore(marker, anchor.nextSibling);
+  }
   function sanitizeRichText(html){
     const container = document.createElement('div');
     container.innerHTML = html == null ? '' : html;
@@ -1594,6 +1632,10 @@
         const originalNext = child.nextSibling;
         if(child.nodeType === 1){
           const tag = child.tagName;
+          if(tag === 'DIV' && child.classList.contains('pp-break')){
+            child = originalNext;
+            continue;
+          }
           if(RICH_TEXT_DROP_TAGS.has(tag)){
             node.removeChild(child);
           } else if(!RICH_TEXT_ALLOWED_TAGS.has(tag)){
@@ -1637,8 +1679,43 @@
     if(html == null) return '';
     const d = document.createElement('div');
     d.innerHTML = html.indexOf('<') !== -1 ? html : escapeHtml(html);
+    // The ProPresenter slide-break marker is a structural chip, not sermon text -- it must never
+    // leak its "SLIDE BREAK ✕" label into search indexing, the manuscript export, or anywhere
+    // else that flattens rich text to plain text.
+    d.querySelectorAll('.pp-break').forEach(n => n.remove());
     d.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
     return d.textContent || '';
+  }
+
+  // Strips slide-break marker chips out of an HTML string while leaving every other tag (bold,
+  // lists, etc.) untouched -- for contexts like the manuscript export that keep real formatting
+  // and just need the structural marker gone, unlike htmlToPlainText which flattens everything.
+  function stripSlideBreaks(html){
+    if(html == null) return '';
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    d.querySelectorAll('.pp-break').forEach(n => n.remove());
+    return d.innerHTML;
+  }
+
+  // Splits an item's stored HTML into one chunk per top-level .pp-break marker (the marker itself
+  // is consumed, not included in either chunk) -- each chunk becomes its own ProPresenter slide on
+  // export, while Present/Practice never call this and keep rendering the item as one block.
+  function splitItemHtmlOnBreaks(html){
+    const container = document.createElement('div');
+    container.innerHTML = html == null ? '' : html;
+    const chunks = [];
+    let buf = document.createElement('div');
+    Array.from(container.childNodes).forEach(node=>{
+      if(node.nodeType === 1 && node.classList && node.classList.contains('pp-break')){
+        chunks.push(buf.innerHTML);
+        buf = document.createElement('div');
+        return;
+      }
+      buf.appendChild(node);
+    });
+    chunks.push(buf.innerHTML);
+    return chunks.filter(html => htmlToPlainText(html).trim().length > 0);
   }
 
   let sermons = loadJSON(STORE_KEY_SERMONS, []);
@@ -2866,7 +2943,7 @@
              <option value="quiet">quiet</option>
              <option value="scripture">scripture</option>
            </select>`}
-      <button class="icon-sm pp-toggle${proIncluded(it) ? ' on' : ''}" data-act="pp-toggle" title="Include this item when exporting to ProPresenter">Slide</button>
+      <button class="icon-sm pp-toggle${proIncluded(it) ? ' on' : ''}" data-act="pp-toggle" title="Put this on the screen (included in the ProPresenter export)">Screen</button>
       <div class="item-main">
         <div class="item-text" contenteditable="true" data-role="text" data-placeholder="Type here..."></div>
       </div>
@@ -2888,6 +2965,13 @@
     editable.addEventListener('focus', ()=> setActiveEditable(editable));
     editable.addEventListener('keyup', updateToolbarState);
     editable.addEventListener('mouseup', updateToolbarState);
+    editable.addEventListener('click', (e)=>{
+      const del = e.target.closest('.brk-del');
+      if(!del) return;
+      del.closest('.pp-break').remove();
+      it.text = sanitizeRichText(editable.innerHTML);
+      scheduleAutosave();
+    });
     editable.addEventListener('keydown', (e)=>{
       if(e.key === 'Enter'){
         // Inside a list item, let the browser create the next bullet naturally.
@@ -3076,6 +3160,34 @@
     updateToolbarState();
   });
 
+  /* ---- Slide break: lets a pastor cut one long scripture passage (or any item) into multiple
+     ProPresenter slides at the cursor, without splitting it into separate Prepare items or
+     changing how it reads in Present -- see makeSlideBreakMarkerHtml / splitItemHtmlOnBreaks. */
+  document.getElementById('slideBreakBtn').addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    if(!activeEditable) return;
+    const id = uid();
+    document.execCommand('insertHTML', false, makeSlideBreakMarkerHtml(id));
+    const marker = activeEditable.querySelector('[data-brk="'+id+'"]');
+    if(!marker) return;
+    normalizeBreakPlacement(marker, activeEditable);
+    // Same reasoning as the Import stage's own break button: a contenteditable="false" chip
+    // leaves the caret sitting just before it, so give typing an explicit home right after it.
+    const range = document.createRange();
+    if(marker.nextSibling){
+      range.setStart(marker.nextSibling, 0);
+    } else {
+      const spacer = document.createTextNode('​');
+      activeEditable.appendChild(spacer);
+      range.setStart(spacer, 0);
+    }
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    activeEditable.dispatchEvent(new Event('input', { bubbles:true }));
+  });
+
   /* ---- Drag-to-reorder items within a section (Pointer Events — works for mouse and touch) ---- */
   let itemDrag = null;
 
@@ -3153,7 +3265,11 @@
       .replace(/[\u0100-\uffff]/g, ch => '\\u' + ch.charCodeAt(0) + '?');
   }
 
-  // Wrap scripture references in blue+bold RTF color codes (color table index 2)
+  // Wrap scripture references mentioned inline in prose (a "see Romans 8:28" aside inside a
+  // block/quiet item) in blue+bold -- color table index 5, kept separate from index 2 (gold),
+  // which is reserved for a scripture *item's* own whole-body styling below. Only ever called for
+  // prose item types; a scripture/illustration item's entire body is already colored as a unit,
+  // and re-highlighting a reference inside it would fight that with a color the item didn't ask for.
   function rtfWithScriptureHighlight(text){
     let out = '';
     let lastIndex = 0;
@@ -3161,19 +3277,45 @@
     SCRIPTURE_RE.lastIndex = 0;
     while((match = SCRIPTURE_RE.exec(text)) !== null){
       out += rtfEscape(text.slice(lastIndex, match.index));
-      out += '{\\cf2\\b ' + rtfEscape(match[0]) + '\\b0\\cf1}';
+      out += '{\\cf5\\b ' + rtfEscape(match[0]) + '\\b0\\cf1}';
       lastIndex = match.index + match[0].length;
     }
     out += rtfEscape(text.slice(lastIndex));
     return out;
   }
 
-  // Whether an item rides into the ProPresenter export. `proInclude` is undefined for every
-  // item that predates this toggle (or that a user has simply never touched) -- falling back to
-  // the original type-based rule (scripture/illustration only) keeps every existing sermon's
-  // export identical to before, while an explicit true/false always wins once set either way.
+  // Whether an item rides into the ProPresenter export. `proInclude` is undefined for every item
+  // that predates this toggle (or that a user has simply never touched) -- falling back to
+  // scripture-only keeps that the one type that shows up on the screen without asking, matching
+  // what most pastors actually put up during a passage reading; everything else (illustrations
+  // included) needs an explicit tap on "Screen." An explicit true/false always wins once set.
   function proIncluded(it){
-    return typeof it.proInclude === 'boolean' ? it.proInclude : (it.type === 'illustration' || it.type === 'scripture');
+    return typeof it.proInclude === 'boolean' ? it.proInclude : it.type === 'scripture';
+  }
+
+  // Mirrors Present's own per-type look (.line.scripture / .line.illustration / .line.quiet) so a
+  // slide pasted into ProPresenter reads as a continuation of what's already on the iPad, not a
+  // plain black-Calibri afterthought: gold italic serif for scripture, orange italic serif for
+  // illustrations, muted italic for quiet asides, plain for everything else. Font table: f0
+  // Calibri (matches the app's sans body text), f1 Georgia (matches Playfair Display's serif).
+  // Color table: 1 ink, 2 gold, 3 orange, 4 muted sage, 5 blue (inline citation highlight only).
+  function rtfStyleForType(bodyRtf, type){
+    if(type === 'scripture') return '{\\i\\f1\\cf2 ' + bodyRtf + '\\cf1\\i0\\f0}';
+    if(type === 'illustration') return '{\\i\\f1\\cf3 ' + bodyRtf + '\\cf1\\i0\\f0}';
+    if(type === 'quiet') return '{\\i\\cf4 ' + bodyRtf + '\\cf1\\i0}';
+    return bodyRtf;
+  }
+
+  // One item can yield multiple RTF paragraphs (= multiple ProPresenter slides) if it has one or
+  // more slide-break markers in it -- see splitItemHtmlOnBreaks. Each resulting chunk keeps the
+  // same per-type styling as the item it came from.
+  function rtfParagraphsForItem(it){
+    const isProse = it.type !== 'scripture' && it.type !== 'illustration';
+    return splitItemHtmlOnBreaks(it.text).map(chunkHtml=>{
+      const plain = htmlToPlainText(chunkHtml) || '';
+      const body = isProse ? rtfWithScriptureHighlight(plain) : rtfEscape(plain);
+      return rtfStyleForType(body, it.type);
+    });
   }
 
   function exportForProPresenter(sermon){
@@ -3181,41 +3323,22 @@
       showToast('Nothing to export yet — add some content first.', {danger:true});
       return;
     }
-    // Defaults to the original behavior (scripture + illustration only) for every item that's
-    // never been touched by the "Slide" toggle in Prepare -- `proInclude` only overrides that
-    // default once a user has explicitly marked an item in or out, either direction.
-    const qualifying = sermon.sections
-      .map(sec => ({
-        title: sec.title,
-        items: sec.items.filter(it => proIncluded(it))
-      }))
-      .filter(sec => sec.items.length > 0);
+    // A flat, in-order list of every item across every section that's toggled on -- no sermon
+    // title or section headers are ever injected here. ProPresenter gets exactly what the pastor
+    // marked with the per-item "Screen" toggle, nothing implied on top of it.
+    const qualifying = sermon.sections.flatMap(sec => sec.items.filter(it => proIncluded(it)));
 
     if(qualifying.length === 0){
-      showToast('No scripture references or illustrations found to export yet.', {danger:true});
+      showToast('Nothing is marked for the screen yet — tap "Screen" on an item to include it.', {danger:true});
       return;
     }
 
-    // RTF header: font table + color table (1=black text, 2=blue for scripture, 3=orange for illustrations)
-    let rtf = '{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Calibri;}}';
-    rtf += '{\\colortbl;\\red20\\green20\\blue20;\\red30\\green80\\blue190;\\red180\\green110\\blue30;}';
+    let rtf = '{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Calibri;}{\\f1 Georgia;}}';
+    rtf += '{\\colortbl;\\red26\\green26\\blue26;\\red199\\green166\\blue106;\\red196\\green122\\blue58;\\red92\\green111\\blue98;\\red30\\green80\\blue190;}';
     rtf += '\\f0\\fs32\\cf1\n';
 
-    // Title
-    rtf += '{\\b\\fs44 ' + rtfEscape(sermon.title || 'Untitled Sermon') + '\\b0}\\par\\par\n';
-
-    qualifying.forEach(sec=>{
-      // Section title as its own slide/paragraph block
-      rtf += '{\\b\\fs36\\cf1 ' + rtfEscape(sec.title || '') + '\\b0}\\par\\par\n';
-
-      sec.items.forEach(it=>{
-        let body = rtfWithScriptureHighlight(htmlToPlainText(it.text) || '');
-        if(it.type === 'illustration'){
-          rtf += '{\\i\\cf3\\b ILLUSTRATION\\b0  ' + body + '\\cf1\\i0}\\par\\par\n';
-        } else {
-          rtf += body + '\\par\\par\n';
-        }
-      });
+    qualifying.forEach(it=>{
+      rtfParagraphsForItem(it).forEach(body=>{ rtf += body + '\\par\\par\n'; });
     });
 
     rtf += '}';
@@ -3232,8 +3355,9 @@
     setTimeout(()=> URL.revokeObjectURL(url), 2000);
   }
 
-  // Unlike the ProPresenter export (scripture/illustration only, for slides), this includes
-  // every item type -- it's a full reading manuscript, for a paper backup or sharing with staff.
+  // Unlike the ProPresenter export (only items toggled "Screen"), this includes every item
+  // regardless of that toggle -- it's a full reading manuscript, for a paper backup or sharing
+  // with staff, so it isn't gated by what happens to be marked for the venue screen.
   function exportManuscript(sermon){
     if(!sermon || !sermon.sections || !sermon.sections.some(sec => sec.items.length > 0)){
       showToast('Nothing to export yet — add some content first.', {danger:true});
@@ -3244,7 +3368,10 @@
 
     const sectionsHtml = sermon.sections.map(sec=>{
       const itemsHtml = sec.items.map(it=>{
-        const body = it.text || '';
+        // ProPresenter slide-break markers are structural, not manuscript content -- strip the
+        // chip but keep every other tag/format intact (unlike htmlToPlainText, which would also
+        // flatten the bold/list/etc. formatting this printed manuscript is meant to preserve).
+        const body = stripSlideBreaks(it.text || '');
         if(it.type === 'scripture') return `<div class="m-item m-scripture">${body}</div>`;
         if(it.type === 'illustration') return `<div class="m-item m-illustration"><span class="m-label">Illustration</span>${body}</div>`;
         if(it.type === 'quiet') return `<div class="m-item m-quiet">${body}</div>`;
@@ -3741,14 +3868,6 @@
     if(del) del.closest('.import-break').remove();
   });
 
-  function normalizeBreakPlacement(marker){
-    if(marker.parentNode === importStage) return;
-    let anchor = marker;
-    while(anchor.parentNode && anchor.parentNode !== importStage) anchor = anchor.parentNode;
-    if(!anchor.parentNode) return;
-    marker.remove();
-    importStage.insertBefore(marker, anchor.nextSibling);
-  }
   document.getElementById('importBreakBtn').addEventListener('pointerdown', (e)=>{
     e.preventDefault();
     importStage.focus();
@@ -3756,7 +3875,7 @@
     document.execCommand('insertHTML', false, makeBreakMarkerHtml('', id));
     const marker = importStage.querySelector('[data-brk="'+id+'"]');
     if(!marker) return;
-    normalizeBreakPlacement(marker);
+    normalizeBreakPlacement(marker, importStage);
     // A contenteditable="false" block leaves the caret sitting just *before* it, so typing
     // right after clicking this button would silently backfill the section that just closed.
     // Give the caret an explicit home immediately after the marker instead.
