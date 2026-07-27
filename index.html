@@ -1687,6 +1687,22 @@
     return d.textContent || '';
   }
 
+  // Same flattening as htmlToPlainText, but for callers that already KNOW their input is real
+  // HTML (e.g. a chunk produced by splitItemHtmlOnBreaks) rather than possibly-legacy plain text.
+  // htmlToPlainText's `indexOf('<') !== -1` legacy-detection heuristic misfires on a genuine HTML
+  // fragment that happens to contain no tags at all -- e.g. one slide-break chunk of plain prose
+  // with an "&nbsp;" entity in it (common at the end of a Word-pasted verse) -- routing it through
+  // escapeHtml() a second time and turning that entity into literal, visible "&nbsp;" text. This
+  // skips the ambiguity entirely by always parsing as HTML.
+  function richHtmlToPlainText(html){
+    if(html == null) return '';
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    d.querySelectorAll('.pp-break').forEach(n => n.remove());
+    d.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+    return d.textContent || '';
+  }
+
   // Strips slide-break marker chips out of an HTML string while leaving every other tag (bold,
   // lists, etc.) untouched -- for contexts like the manuscript export that keep real formatting
   // and just need the structural marker gone, unlike htmlToPlainText which flattens everything.
@@ -1701,6 +1717,10 @@
   // Splits an item's stored HTML into one chunk per top-level .pp-break marker (the marker itself
   // is consumed, not included in either chunk) -- each chunk becomes its own ProPresenter slide on
   // export, while Present/Practice never call this and keep rendering the item as one block.
+  // Expects `html` to already be real, normalized rich HTML (run it through
+  // sanitizeRichText(seedRichHtml(...)) first, as every other consumer of an item's text does) --
+  // an un-normalized legacy plain-text item passed here directly would get its raw characters
+  // misread as markup.
   function splitItemHtmlOnBreaks(html){
     const container = document.createElement('div');
     container.innerHTML = html == null ? '' : html;
@@ -1715,7 +1735,7 @@
       buf.appendChild(node);
     });
     chunks.push(buf.innerHTML);
-    return chunks.filter(html => htmlToPlainText(html).trim().length > 0);
+    return chunks.filter(html => richHtmlToPlainText(html).trim().length > 0);
   }
 
   let sermons = loadJSON(STORE_KEY_SERMONS, []);
@@ -3311,8 +3331,12 @@
   // same per-type styling as the item it came from.
   function rtfParagraphsForItem(it){
     const isProse = it.type !== 'scripture' && it.type !== 'illustration';
-    return splitItemHtmlOnBreaks(it.text).map(chunkHtml=>{
-      const plain = htmlToPlainText(chunkHtml) || '';
+    // Normalize once, the same way every other consumer of an item's text does, before handing
+    // guaranteed-real HTML to splitItemHtmlOnBreaks -- it.text can still legitimately be
+    // un-migrated legacy plain text at rest.
+    const html = sanitizeRichText(seedRichHtml(it.text));
+    return splitItemHtmlOnBreaks(html).map(chunkHtml=>{
+      const plain = richHtmlToPlainText(chunkHtml) || '';
       const body = isProse ? rtfWithScriptureHighlight(plain) : rtfEscape(plain);
       return rtfStyleForType(body, it.type);
     });
