@@ -5456,6 +5456,7 @@
   if(isNativeApp && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
     window.Capacitor.Plugins.App.addListener('appUrlOpen', async (event)=>{
       const url = event && event.url;
+      console.log('[auth] appUrlOpen fired', url);
       if(!url || url.indexOf('auth-callback') === -1) return;
       try{
         // iOS/Safari sometimes hands this callback back with a bare trailing "#" and nothing
@@ -5467,12 +5468,14 @@
         const h = url.split('#')[1] || '';
         const params = new URLSearchParams(q || h);
         const code = params.get('code');
+        console.log('[auth] parsed code', code);
         // exchangeCodeForSession resolves to {data, error} rather than throwing on a rejected
         // code -- without checking .error explicitly, a failed exchange (bad/reused/expired
         // code, verifier mismatch, etc.) fails completely silently: no exception for the catch
         // block below to log or toast, and the user just lands back signed out with no clue why.
         if(code){
-          const { error } = await sb.auth.exchangeCodeForSession(code);
+          const { data, error } = await sb.auth.exchangeCodeForSession(code);
+          console.log('[auth] exchange result', { hasSession: !!(data && data.session), error });
           if(error) throw error;
         }
       }catch(e){ console.error('[auth] deep-link exchange failed', e); showToast("Sign-in didn't finish. Please try again.", {danger:true}); }
