@@ -5172,7 +5172,7 @@
   // Native builds sign in through the PKCE flow so the OAuth / magic-link callback can be finished
   // inside the app via a deep link (see the appUrlOpen handler in the account section). We turn
   // detectSessionInUrl off there because the callback never lands in the WebView's own URL -- it
-  // arrives as a com.shema.app:// deep link we exchange by hand. Web keeps Supabase's defaults
+  // arrives as a com.radahindustries.shema:// deep link we exchange by hand. Web keeps Supabase's defaults
   // untouched, so the already-working browser sign-in is unaffected. (#75)
   const __isNativeEarly = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const sb = (typeof window.supabase !== 'undefined')
@@ -5200,7 +5200,7 @@
      shows back up in a diff somewhere.) Convention: a RevenueCat Offering named "sync" holding
      that entitlement's one package. */
   const RC_ENTITLEMENT_SYNC = 'sync';
-  const APP_BUNDLE_ID = 'com.shema.app';
+  const APP_BUNDLE_ID = 'com.radahindustries.shema';
   // Public API keys -- same "meant to be public" category as the Supabase anon key above; the
   // real protection is server-side receipt validation (the webhook), not hiding these strings.
   // iOS stays empty until the Apple Developer Program membership exists (App Store Connect
@@ -5444,13 +5444,13 @@
   // Deep link the native OAuth / magic-link callback returns through. Must match the iOS
   // CFBundleURLTypes scheme, the Android intent-filter scheme, and be added to Supabase's
   // Auth > URL Configuration > Redirect URLs allow-list. (#75)
-  const AUTH_REDIRECT_NATIVE = 'com.shema.app://auth-callback';
+  const AUTH_REDIRECT_NATIVE = 'com.radahindustries.shema://auth-callback';
   function openAuthUrl(url){
     // In-app browser closes cleanly once the redirect fires; fall back to the system browser.
     const B = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
     if(B && B.open){ B.open({ url }); } else { window.open(url, '_system'); }
   }
-  // Native only: catch the com.shema.app:// callback, pull the PKCE code out of it, and complete
+  // Native only: catch the com.radahindustries.shema:// callback, pull the PKCE code out of it, and complete
   // the session inside the app -- this is the piece that was missing, which is why sign-in used to
   // land in Safari and never come back. Harmless on web (no Capacitor App plugin there).
   if(isNativeApp && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
