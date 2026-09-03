@@ -5467,7 +5467,14 @@
         const h = url.split('#')[1] || '';
         const params = new URLSearchParams(q || h);
         const code = params.get('code');
-        if(code){ await sb.auth.exchangeCodeForSession(code); }
+        // exchangeCodeForSession resolves to {data, error} rather than throwing on a rejected
+        // code -- without checking .error explicitly, a failed exchange (bad/reused/expired
+        // code, verifier mismatch, etc.) fails completely silently: no exception for the catch
+        // block below to log or toast, and the user just lands back signed out with no clue why.
+        if(code){
+          const { error } = await sb.auth.exchangeCodeForSession(code);
+          if(error) throw error;
+        }
       }catch(e){ console.error('[auth] deep-link exchange failed', e); showToast("Sign-in didn't finish. Please try again.", {danger:true}); }
       try{ const B = window.Capacitor.Plugins.Browser; if(B && B.close) B.close(); }catch(_){}
       try{ refreshAccountState(); decideWebAccess(); }catch(_){}
