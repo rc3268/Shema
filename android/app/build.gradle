@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.shema.app"
+    namespace = "com.radahindustries.shema"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.shema.app"
+        applicationId "com.radahindustries.shema"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

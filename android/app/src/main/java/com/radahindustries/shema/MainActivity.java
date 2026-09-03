@@ -1,4 +1,4 @@
-package com.shema.app;
+package com.radahindustries.shema;
 
 import com.getcapacitor.BridgeActivity;
 

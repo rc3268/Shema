@@ -23,12 +23,12 @@
             </intent-filter>
 
             <!-- Deep link for the OAuth / magic-link sign-in callback (#75). Must match the
-                 com.shema.app:// scheme used in the app's auth redirect and the iOS URL type. -->
+                 com.radahindustries.shema:// scheme used in the app's auth redirect and the iOS URL type. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.shema.app" />
+                <data android:scheme="com.radahindustries.shema" />
             </intent-filter>
 
         </activity>
