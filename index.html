@@ -5458,7 +5458,12 @@
       const url = event && event.url;
       if(!url || url.indexOf('auth-callback') === -1) return;
       try{
-        const q = url.split('?')[1] || '';
+        // iOS/Safari sometimes hands this callback back with a bare trailing "#" and nothing
+        // after it (no fragment params, just the marker itself) -- URLSearchParams has no idea
+        // "#" means "fragment starts here," so without stripping it first, a trailing "#" ends
+        // up glued onto the end of whatever the last query param's value is (here, the PKCE
+        // code itself), and Supabase silently rejects that corrupted code with no error surfaced.
+        const q = (url.split('?')[1] || '').split('#')[0];
         const h = url.split('#')[1] || '';
         const params = new URLSearchParams(q || h);
         const code = params.get('code');
