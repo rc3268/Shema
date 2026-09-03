@@ -561,7 +561,7 @@
   #richToolbar button:hover{ border-color:var(--sage); }
   #richToolbar button:active{ transform:scale(0.93); }
   #richToolbar button.active{ background:var(--gold-soft); color:var(--gold-dim); border-color:var(--gold-dim); box-shadow:inset 0 1px 2px rgba(0,0,0,0.06); }
-  #highlightBtn mark{ background:var(--gold-soft); color:var(--ink); border-radius:3px; padding:0 3px; font-weight:600; }
+  #highlightBtn mark, #importHighlightBtn mark{ background:var(--gold-soft); color:var(--ink); border-radius:3px; padding:0 3px; font-weight:600; }
   #richToolbar .toolbar-divider{ width:26px; height:1px; background:var(--line); margin:2px 0; flex-shrink:0; }
   .vtool-plus{ background:var(--gold); color:var(--ink); border:none; font-size:18px; font-weight:700; box-shadow:0 1px 2px rgba(0,0,0,0.12); }
   .vtool-plus:hover{ border-color:transparent; }
@@ -652,6 +652,17 @@
   }
   #illustForm textarea{ min-height:110px; resize:none; line-height:1.5; }
   #illustForm label{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:4px; }
+
+  /* Send Feedback drawer */
+  #feedbackInput{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:9px;
+    padding:10px 12px; font-size:14px; margin-bottom:12px; font-family:inherit; min-height:140px; resize:none; line-height:1.5;
+  }
+  /* Getting Started drawer */
+  #helpModal h3{ font-size:14px; margin:20px 0 6px; }
+  #helpModal h3:first-child{ margin-top:0; }
+  #helpModal p{ font-size:13px; color:var(--muted); line-height:1.55; margin:0 0 4px; }
+  #helpModal ul{ margin:0 0 4px; padding-left:20px; font-size:13px; color:var(--muted); line-height:1.55; }
   #illustImagePreviewWrap{ margin-bottom:10px; }
   #illustImagePreviewWrap .illust-thumb{ max-height:220px; margin-bottom:8px; }
   #illustImagePreviewWrap .btn{ width:100%; }
@@ -1234,6 +1245,7 @@
         <button data-cmd="bold" title="Bold"><strong>B</strong></button>
         <button data-cmd="italic" title="Italic"><em>I</em></button>
         <button data-cmd="underline" title="Underline"><u>U</u></button>
+        <button id="importHighlightBtn" title="Highlight"><mark>H</mark></button>
         <span class="toolbar-divider-h"></span>
         <button data-cmd="insertUnorderedList" title="Bullet list"><img class="mono-ic" src="icons/bullet-list.png" data-light="icons/bullet-list.png" data-dark="icons/bullet-list-dark.png" style="height:15px;width:15px;display:block;" alt=""></button>
         <button data-cmd="insertOrderedList" title="Numbered list"><img class="mono-ic" src="icons/numbered-list.png" data-light="icons/numbered-list.png" data-dark="icons/numbered-list-dark.png" style="height:15px;width:15px;display:block;" alt=""></button>
@@ -1300,9 +1312,17 @@
         </div>
         <span class="settings-row-chev">›</span>
       </div>
+      <div class="settings-row" id="settingsHelpRow">
+        <div class="settings-row-label"><span>Getting Started</span><span class="settings-row-sub">A quick tour of Prepare, Present, and Practice</span></div>
+        <span class="settings-row-chev">›</span>
+      </div>
       <div class="settings-row" id="settingsSyncRow" style="display:none;">
         <div class="settings-row-label"><span>Sync Now</span><span class="settings-row-sub" id="settingsSyncNowSub">Manually check for updates</span></div>
         <button class="btn icon" id="syncNowBtn" title="Sync now"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></button>
+      </div>
+      <div class="settings-row" id="settingsFeedbackRow">
+        <div class="settings-row-label"><span>Send Feedback</span><span class="settings-row-sub">Report a bug or suggest something</span></div>
+        <span class="settings-row-chev">›</span>
       </div>
       <div class="settings-row" id="settingsBackupRow">
         <div class="settings-row-label"><span>Backup</span><span class="settings-row-sub">Download everything as a file</span></div>
@@ -1337,6 +1357,46 @@
         <div class="settings-row-label"><span>Dark Mode</span></div>
         <button class="btn icon dark-toggle" id="darkModeBtn" title="Toggle dark mode"><img class="dm-icon" src="icons/darkmodebtn.png" data-light="icons/darkmodebtn-light.png" data-dark="icons/darkmodebtn.png" style="height:16px;width:16px;display:block;" alt=""></button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Getting Started: a short in-app tour, reached from Settings -- no separate build tools or
+     screen recording needed for this slice, just written guidance. -->
+<div class="modal-overlay drawer-right" id="helpModal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-header"><h2>Getting Started</h2><button class="btn icon" id="closeHelpModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="scroll">
+      <h3>Prepare</h3>
+      <p>Build a sermon in sections, each holding items -- scripture, a block of notes, a quiet aside, or an illustration. Drag from the + menu to add content, and use the toolbar on the right for bold, italic, highlight, and lists.</p>
+      <h3>Present</h3>
+      <p>Run your sermon on stage from a clean, distraction-free view with a countdown timer -- built for what's actually in front of you while preaching, not for editing.</p>
+      <h3>Practice</h3>
+      <p>Rehearse with a count-up timer and an audio recording of the run-through. Tap any line to leave yourself a note, which pauses the timer and recording while you write it.</p>
+      <h3>Library &amp; Plan</h3>
+      <p>Library holds every sermon, grouped by series. Plan is a calendar view for scheduling what you're preaching when.</p>
+      <h3>ProPresenter</h3>
+      <p>From Prepare, use Export to ProPresenter to send everything marked "Screen" into a ready-to-import file for your ProPresenter operator.</p>
+      <h3>Syncing across devices</h3>
+      <p>Sign in from Settings &gt; Account (Google or an email link) to keep the same sermon library on your phone, tablet, and the web. Sync is free for beta testers.</p>
+      <h3>Got stuck, or found something off?</h3>
+      <p>Use Settings &gt; Send Feedback -- that's the fastest way to reach us during the beta.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Send Feedback: a short free-text note plus a bit of automatic context (platform, app
+     version), written straight to a Supabase table for review -- no reply flow yet, this is a
+     one-way beta-feedback inbox, not a support ticket system. -->
+<div class="modal-overlay drawer-right" id="feedbackModal">
+  <div class="modal-sheet">
+    <div class="modal-sheet-header"><h2>Send Feedback</h2><button class="btn icon" id="closeFeedbackModal"><img class="mono-ic" src="icons/icon-close.png" data-light="icons/icon-close.png" data-dark="icons/icon-close-dark.png" style="height:14px;width:14px;display:block;" alt=""></button></div>
+    <div class="scroll">
+      <p style="color:var(--muted); font-size:13px; line-height:1.5; margin:0 0 12px;">
+        Found a bug, or have an idea? Tell us about it below -- this goes straight to the team, no account required.
+      </p>
+      <textarea id="feedbackInput" placeholder="What happened, or what would help?"></textarea>
+      <button class="btn gold" id="feedbackSendBtn" style="width:100%;">Send Feedback</button>
     </div>
   </div>
 </div>
@@ -1603,7 +1663,17 @@
 
   // Only these inline tags are ever allowed to survive in stored rich text.
   const RICH_TEXT_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','U','MARK','BR','UL','OL','LI','BLOCKQUOTE']);
-  const RICH_TEXT_DROP_TAGS = new Set(['SCRIPT','STYLE']);
+  // Dropped WHOLE (tag and its contents both gone) rather than unwrapped-and-kept like an
+  // ordinary disallowed DIV/SPAN -- these are page chrome (buttons, form controls, icons), never
+  // sermon prose, so their text content ("Tools", "Copy", etc.) isn't worth rescuing the way a
+  // stray wrapper div's real paragraph text is. Pasting a Bible-lookup site's verse list is the
+  // common case: each verse row carries its own "Tools" button and a copy-icon <svg> alongside
+  // the actual verse text, and naively unwrapping those leaves the button's label sitting in the
+  // sermon as if it were part of the passage.
+  const RICH_TEXT_DROP_TAGS = new Set(['SCRIPT','STYLE','BUTTON','INPUT','SELECT','TEXTAREA','SVG','NAV','NOSCRIPT']);
+  function isChromeElement(el){
+    return RICH_TEXT_DROP_TAGS.has(el.tagName) || (el.getAttribute && el.getAttribute('role') === 'button');
+  }
 
   // A ProPresenter slide-break marker (see #slideBreakBtn) -- an atomic, non-editable chip, not
   // user-authored formatting, so it deliberately bypasses the inline-tag allowlist below rather
@@ -1636,7 +1706,7 @@
             child = originalNext;
             continue;
           }
-          if(RICH_TEXT_DROP_TAGS.has(tag)){
+          if(isChromeElement(child)){
             node.removeChild(child);
           } else if(!RICH_TEXT_ALLOWED_TAGS.has(tag)){
             // Unwrap disallowed elements (e.g. stray <div>/<span> from paste) but keep their content,
@@ -3010,6 +3080,21 @@
         scheduleAutosave();
       }
     });
+    // Sanitize BEFORE insertion, not just on the next 'input' -- copying a verse straight off a
+    // Bible-lookup website (Blue Letter Bible, Bible Gateway, etc.) carries that page's own
+    // per-verse "Tools" buttons and copy icons along in the clipboard HTML. Left to the default
+    // paste + sanitize-on-input flow, that raw chrome sits visibly in the editor (as actual live
+    // buttons) until the item happens to re-render from its now-cleaned stored text; sanitizing up
+    // front means it's never there to see in the first place. Falls back to plain text (as literal
+    // text, not HTML) when the clipboard has no HTML representation at all.
+    editable.addEventListener('paste', (e)=>{
+      e.preventDefault();
+      const html = e.clipboardData.getData('text/html');
+      const insertHtml = html ? sanitizeRichText(html) : escapeHtml(e.clipboardData.getData('text/plain')).replace(/\n/g, '<br>');
+      document.execCommand('insertHTML', false, insertHtml);
+      it.text = sanitizeRichText(editable.innerHTML);
+      scheduleAutosave();
+    });
 
     // Scripture "Look up" button intentionally removed (#78): it drove a Blue Letter Bible search
     // off whatever text sat in the scripture box, which isn't the right model. A proper, dedicated
@@ -3787,7 +3872,10 @@
           if(child.classList && child.classList.contains('import-break')){
             child = originalNext; continue;
           }
-          if(tag === 'SCRIPT' || tag === 'STYLE'){
+          if(isChromeElement(child)){
+            // Dropped whole, not unwrapped -- page chrome from a pasted webpage (a "Tools"
+            // button, a copy icon) alongside real verse/paragraph text, same reasoning as
+            // sanitizeRichText's own RICH_TEXT_DROP_TAGS.
             node.removeChild(child);
           } else if(!IMPORT_ALLOWED_TAGS.has(tag)){
             const wasBlock = (tag === 'DIV' || tag === 'P');
@@ -3942,6 +4030,8 @@
       try{ active = document.queryCommandState(cmd); } catch(e){}
       btn.classList.toggle('active', active);
     });
+    const importHlBtn = document.getElementById('importHighlightBtn');
+    if(importHlBtn) importHlBtn.classList.toggle('active', !!closestMark(currentSelectionNode()));
   }
   document.getElementById('importToolbar').querySelectorAll('button[data-cmd]').forEach(btn=>{
     btn.addEventListener('pointerdown', (e)=>{
@@ -3950,6 +4040,33 @@
       document.execCommand(btn.dataset.cmd);
       updateImportToolbarState();
     });
+  });
+  // Same manual Range-API approach as the Prepare editor's own #highlightBtn (see its comment
+  // above) -- highlight isn't a real execCommand, and IMPORT_ALLOWED_TAGS already keeps <mark>
+  // through the paste/upload sanitizer, so a highlighted quote survives into whatever block it
+  // lands in once "Import" splits the staged content into sections.
+  document.getElementById('importHighlightBtn').addEventListener('pointerdown', (e)=>{
+    e.preventDefault();
+    importStage.focus();
+    const sel = window.getSelection();
+    if(!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const existingMark = closestMark(currentSelectionNode());
+    if(existingMark && importStage.contains(existingMark)){
+      const parent = existingMark.parentNode;
+      while(existingMark.firstChild) parent.insertBefore(existingMark.firstChild, existingMark);
+      parent.removeChild(existingMark);
+    } else if(!range.collapsed){
+      const mark = document.createElement('mark');
+      try{
+        range.surroundContents(mark);
+      } catch(err){
+        const frag = range.extractContents();
+        mark.appendChild(frag);
+        range.insertNode(mark);
+      }
+    }
+    updateImportToolbarState();
   });
   importStage.addEventListener('keyup', updateImportToolbarState);
   importStage.addEventListener('mouseup', updateImportToolbarState);
@@ -5145,13 +5262,24 @@
     return 'tester';
   }
 
+  // PRE-LAUNCH ONLY -- flip to true the moment real paid sync subscriptions go live (StoreKit +
+  // Play billing are both still unfinished, see the Phase 4 tracker). While false, ANY signed-in
+  // web user gets in below, not just `sync_subscription_active` accounts -- matching what the
+  // native app has always done (never gated on this) and what the sync engine itself already does
+  // (runs for every signed-in user regardless, see its own comment further down). There's no
+  // paying customer base to protect yet, and a beta-tester allowlist is needless friction (and a
+  // needless way to lock someone out by typo) for a small, trusted group. This one flag is the
+  // only thing that needs flipping back -- nothing else in this function should need touching.
+  const WEB_ACCESS_REQUIRES_SYNC = false;
+
   /* ============ WEB ACCESS GATE ============
      Native: always the real app -- the purchase itself is a paid store listing, checked entirely
      by Apple/Google, nothing to decide here. Web: the app is only ever shown to a signed-in
-     account with an active sync subscription; everyone else lands on the marketing page instead
-     (#app and #marketingPage are siblings, see the top of <body> -- toggling one never touches
-     the other's markup). See context.md's 2026-07-21 pricing History entry for why the web build
-     stopped being a free-standing alternative to buying the app. */
+     account (see WEB_ACCESS_REQUIRES_SYNC above for the pre-launch exception to "active sync
+     subscription" specifically); everyone else lands on the marketing page instead (#app and
+     #marketingPage are siblings, see the top of <body> -- toggling one never touches the other's
+     markup). See context.md's 2026-07-21 pricing History entry for why the web build stopped
+     being a free-standing alternative to buying the app. */
   async function decideWebAccess(){
     if(isNativeApp) return;
     const appEl = document.getElementById('app');
@@ -5165,7 +5293,8 @@
         profile = p;
       }
     }
-    if(profile && profile.sync_subscription_active){
+    const hasWebAccess = session && session.user && (!WEB_ACCESS_REQUIRES_SYNC || (profile && profile.sync_subscription_active));
+    if(hasWebAccess){
       mktEl.style.display = 'none';
       // 'flex', not '' -- an empty inline value only clears any inline override and falls back
       // to the CSS cascade, where "html.is-web #app{display:none}" (a class selector) still
@@ -5207,6 +5336,45 @@
   });
   document.getElementById('closeSettingsModal').addEventListener('click', ()=> settingsModal.classList.remove('open'));
   document.getElementById('syncNowBtn').addEventListener('click', manualSyncNow);
+
+  const helpModal = document.getElementById('helpModal');
+  document.getElementById('settingsHelpRow').addEventListener('click', ()=> helpModal.classList.add('open'));
+  document.getElementById('closeHelpModal').addEventListener('click', ()=> helpModal.classList.remove('open'));
+
+  // Beta-feedback inbox: a one-way note into a Supabase table, reviewed manually (see the SQL
+  // handed to the user for the `feedback` table + RLS -- open to anon+authenticated inserts, no
+  // client-side SELECT policy, since testers never need to read feedback back, only submit it).
+  // Works signed in or not -- unlike sync, feedback isn't gated on having an account at all.
+  const feedbackModal = document.getElementById('feedbackModal');
+  document.getElementById('settingsFeedbackRow').addEventListener('click', ()=> feedbackModal.classList.add('open'));
+  document.getElementById('closeFeedbackModal').addEventListener('click', ()=> feedbackModal.classList.remove('open'));
+  document.getElementById('feedbackSendBtn').addEventListener('click', async ()=>{
+    const input = document.getElementById('feedbackInput');
+    const message = input.value.trim();
+    if(!message){ showToast('Write something first.', {danger:true}); return; }
+    if(!sb){ showToast("Feedback needs a network connection -- try again once you're online.", {danger:true}); return; }
+    const btn = document.getElementById('feedbackSendBtn');
+    btn.disabled = true;
+    try{
+      const { data: { session } } = await sb.auth.getSession();
+      const platform = isNativeApp ? (window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : 'native') : 'web';
+      const { error } = await sb.from('feedback').insert({
+        user_id: session && session.user ? session.user.id : null,
+        email: session && session.user ? session.user.email : null,
+        platform,
+        message
+      });
+      if(error) throw error;
+      input.value = '';
+      feedbackModal.classList.remove('open');
+      showToast('Thanks -- feedback sent!');
+    } catch(e){
+      console.error('[feedback] send failed', e);
+      showToast("Couldn't send feedback -- please try again.", {danger:true});
+    } finally {
+      btn.disabled = false;
+    }
+  });
   const bibleVersionSelect = document.getElementById('bibleVersionSelect');
   if(bibleVersionSelect){
     bibleVersionSelect.value = getBibleVersion();
@@ -5261,8 +5429,13 @@
     const type = computeAccountType(session, profile);
     document.getElementById('accountEmailDisplay').textContent = session.user.email || session.user.id;
     document.getElementById('accountTypeBadge').textContent = type.toUpperCase();
-    document.getElementById('acctSyncActive').textContent = syncActive ? 'Active' : 'Not active';
-    document.getElementById('acctSyncBtn').style.display = syncActive ? 'none' : '';
+    // Sync itself already runs for every signed-in user pre-launch (see the Sync Engine comment
+    // below) -- a "tester" account seeing "Not active" plus a Start Sync purchase button would
+    // wrongly suggest sync isn't working, and clicking that button pointlessly routes them into
+    // a real-money purchase flow (or a billing error, since StoreKit/Play billing isn't fully set
+    // up yet) for something they already have for free during the beta.
+    document.getElementById('acctSyncActive').textContent = syncActive ? 'Active' : (type === 'tester' ? 'Active — free during beta' : 'Not active');
+    document.getElementById('acctSyncBtn').style.display = (syncActive || type === 'tester') ? 'none' : '';
     document.getElementById('acctBillingSection').style.display = (type === 'sync') ? '' : 'none';
     settingsSub.textContent = 'Signed in · ' + type.charAt(0).toUpperCase() + type.slice(1);
     renderBackupStatus();
