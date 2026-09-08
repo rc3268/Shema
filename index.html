@@ -428,6 +428,17 @@
   .sec-block{ background:var(--panel); border:1px solid var(--line); border-radius:12px; margin-bottom:14px; overflow:hidden; transition:border-color .15s ease, box-shadow .15s ease; }
   .sec-block.drop-target-active{ border-color:var(--gold-dim); box-shadow:0 0 0 3px var(--gold-soft-bg); }
   .sec-items-empty{ padding:16px 12px; text-align:center; color:var(--muted); font-size:13px; font-style:italic; opacity:0.8; }
+  /* Click-to-add line: the "type and go" alternative to the drag-a-chip "+" menu (#93) -- sits at
+     the bottom of every section's item list (in place of the old static empty-state message when
+     there are no items yet), and just starts a new blank block right there, focused and ready to
+     type into. Deliberately plain-text, not a button, so it reads as "click here to keep writing"
+     rather than another piece of chrome competing with the section's real content. */
+  .sec-add-line{
+    display:block; width:100%; background:none; border:none; text-align:left; cursor:pointer;
+    padding:12px 14px; font-family:'Playfair Display',serif; font-style:italic; font-size:13.5px;
+    color:var(--muted); opacity:0.75; transition:opacity .12s ease, background .12s ease;
+  }
+  .sec-add-line:hover{ opacity:1; background:var(--panel-2); }
   .sec-head{ display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--panel-2); border-bottom:1px solid var(--line); }
   .sec-head input{ flex:1; background:none; border:none; color:var(--heading); font-weight:700; font-size:15px; letter-spacing:.5px; text-transform:uppercase; font-family:'Playfair Display',serif; }
   .sec-head .icon-sm{ background:none; border:none; color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; min-width:28px; width:auto; height:28px; padding:0 8px; }
@@ -2999,12 +3010,30 @@
         </div>
         <div class="sec-items"></div>`;
       const itemsWrap = block.querySelector('.sec-items');
-      if(sec.items.length === 0){
-        itemsWrap.innerHTML = '<div class="sec-items-empty">Drag content here from the + menu</div>';
-      }
       sec.items.forEach((it, ii)=>{
         itemsWrap.appendChild(makeItemRow(sec, it, ii));
       });
+      // "Type and go": click it, a blank block lands at the end of this section and is focused
+      // immediately, same as clicking at the end of a line in any ordinary text editor. Switching
+      // that new item to scripture/quiet afterward uses the existing per-item type dropdown --
+      // no separate type picker needed for this path. Illustrations still come from the "+" menu
+      // (that's a pick-existing-content flow, not a type-and-type-into-it one).
+      const addLineBtn = document.createElement('button');
+      addLineBtn.className = 'sec-add-line';
+      addLineBtn.type = 'button';
+      addLineBtn.textContent = sec.items.length === 0 ? 'Click to start writing…' : '+ Add a line';
+      addLineBtn.addEventListener('click', ()=>{
+        const newItem = { id: uid(), type: 'block', text: '' };
+        sec.items.push(newItem);
+        renderSections();
+        scheduleAutosave();
+        requestAnimationFrame(()=>{
+          const row = wrap.querySelector(`[data-item-id="${newItem.id}"]`);
+          const editable = row && row.querySelector('[data-role="text"]');
+          if(editable) editable.focus();
+        });
+      });
+      itemsWrap.appendChild(addLineBtn);
       block.querySelector('[data-role="sec-title"]').addEventListener('input', e=>{ sec.title = e.target.value; });
       block.querySelector('[data-act="sec-up"]').addEventListener('click', ()=>{
         if(si>0){ [s.sections[si-1], s.sections[si]] = [s.sections[si], s.sections[si-1]]; renderSections(); scheduleAutosave(); }
