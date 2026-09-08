@@ -1733,11 +1733,18 @@
   }
 
   // Legacy sermons stored plain text (with \n line breaks and **/_ markdown from an earlier version).
-  // Rich-text content from this editor always contains a tag, so the presence of "<" is what tells
-  // these two eras of content apart — real sermon text is never going to contain a literal "<".
+  // Rich-text content from this editor always contains a tag OR an HTML entity, so either one
+  // tells these two eras of content apart — real legacy text is never going to contain a literal
+  // "<", and a genuine entity reference (&amp;, &nbsp;, &#39;, ...) only ever shows up here because
+  // a browser already serialized real HTML once (e.g. a bare ampersand or non-breaking space
+  // typed/pasted with no other tags around it -- innerHTML always round-trips those as entities,
+  // even with zero tags in sight). Checking "<" alone used to mistake that entity-only HTML for
+  // legacy plain text and run it through escapeHtml() a second time, turning a real "&" or a real
+  // non-breaking space into visible literal text ("&amp;" or "&nbsp;" showing up on screen).
+  const HTML_ENTITY_RE = /&(#\d+|#x[0-9a-f]+|[a-z]+);/i;
   function seedRichHtml(str){
     if(str == null) return '';
-    if(str.indexOf('<') !== -1) return str; // already rich HTML — pass through
+    if(str.indexOf('<') !== -1 || HTML_ENTITY_RE.test(str)) return str; // already rich HTML — pass through
     let s = escapeHtml(str);
     s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/(?<![\w])_(.+?)_(?![\w])/g, '<u>$1</u>');
@@ -1748,7 +1755,10 @@
   function htmlToPlainText(html){
     if(html == null) return '';
     const d = document.createElement('div');
-    d.innerHTML = html.indexOf('<') !== -1 ? html : escapeHtml(html);
+    // Same legacy-vs-rich-HTML ambiguity as seedRichHtml above -- a tag-free string containing a
+    // real entity (from a bare "&" or non-breaking space with nothing else around it) still counts
+    // as already-HTML, or it gets double-escaped here too.
+    d.innerHTML = (html.indexOf('<') !== -1 || HTML_ENTITY_RE.test(html)) ? html : escapeHtml(html);
     // The ProPresenter slide-break marker is a structural chip, not sermon text -- it must never
     // leak its "SLIDE BREAK ✕" label into search indexing, the manuscript export, or anywhere
     // else that flattens rich text to plain text.
