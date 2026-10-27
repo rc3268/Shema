@@ -5324,13 +5324,20 @@
     const appEl = document.getElementById('app');
     const mktEl = document.getElementById('marketingPage');
     let session = null, profile = null;
-    if(sb){
-      const { data } = await sb.auth.getSession();
-      session = data.session;
-      if(session && session.user){
-        const { data: p } = await sb.from('profiles').select('sync_subscription_active').eq('id', session.user.id).maybeSingle();
-        profile = p;
+    try{
+      if(sb){
+        const { data } = await sb.auth.getSession();
+        session = data.session;
+        if(session && session.user){
+          const { data: p } = await sb.from('profiles').select('sync_subscription_active').eq('id', session.user.id).maybeSingle();
+          profile = p;
+        }
       }
+    }catch(e){
+      // Supabase unreachable (paused project, network blip, etc.) -- fail closed to the
+      // marketing/sign-in view below instead of leaving #app and #marketingPage both stuck
+      // hidden forever, since they start hidden and only this function ever un-hides either one.
+      console.error('[access] session/profile lookup failed', e);
     }
     const hasWebAccess = session && session.user && (!WEB_ACCESS_REQUIRES_SYNC || (profile && profile.sync_subscription_active));
     if(hasWebAccess){
